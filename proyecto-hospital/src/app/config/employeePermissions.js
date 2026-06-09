@@ -7,7 +7,7 @@ export const menuPermissions = {
     fullAccess: true,
     routes: [
       'dashboard', 'triaje', 'registro', 'camas', 'historial',
-      'farmacia', 'perfil', 'ajustes',
+      'farmacia', 'cobertura', 'facturacion', 'perfil', 'ajustes',
       'gestion-empleados', 'reportes', 'turnos',
     ],
   },
@@ -39,11 +39,11 @@ export const menuPermissions = {
     ],
   },
 
-  // ── Recepcionista — admisión de pacientes ─────────────────
+  // ── Recepcionista — admisión y gestión administrativa ─────
   recepcionista: {
     fullAccess: false,
     routes: [
-      'dashboard', 'registro', 'turnos',
+      'dashboard', 'registro', 'cobertura', 'facturacion', 'historial', 'turnos',
       'perfil', 'ajustes',
     ],
   },

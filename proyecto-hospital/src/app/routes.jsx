@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { useAuth } from './context/AuthContext.jsx'
 import { MainLayout } from './components/MainLayout.jsx'
 import { ProtectedRoute } from './components/ProtectedRoute.jsx'
 import { TipoUsuario } from './pages/TipoUsuario.jsx'
@@ -9,8 +10,12 @@ import { DashboardAdmin } from './pages/dashboards/DashboardAdmin.jsx'
 import { ReceptionistDashboard } from './pages/dashboards/ReceptionistDashboard.jsx'
 
 // Pages
-import { RegistroPaciente } from './pages/RegistroPaciente.jsx'
-import { GestionEmpleados } from './pages/GestionEmpleados.jsx'
+import { RegistroPaciente }      from './pages/RegistroPaciente.jsx'
+import { GestionEmpleados }      from './pages/GestionEmpleados.jsx'
+import { VerificacionCobertura } from './pages/VerificacionCobertura.jsx'
+import { Facturacion }           from './pages/Facturacion.jsx'
+import { HistorialAdmin }        from './pages/HistorialAdmin.jsx'
+import { ColaEspera }            from './pages/ColaEspera.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -23,11 +28,11 @@ function Placeholder({ title }) {
 }
 
 function EmployeeDashboard() {
-  const employeeType = sessionStorage.getItem('employeeType')
-  switch (employeeType) {
-    case 'admin':        return <DashboardAdmin />
-    case 'receptionist': return <ReceptionistDashboard />
-    default:             return <Placeholder title="Dashboard" />
+  const { perfil } = useAuth()
+  switch (perfil?.rol) {
+    case 'administrador':  return <DashboardAdmin />
+    case 'recepcionista':  return <ReceptionistDashboard />
+    default:               return <Placeholder title="Dashboard" />
   }
 }
 
@@ -46,18 +51,22 @@ export const router = createBrowserRouter([
       { index: true, Component: EmployeeDashboard },
 
       // ── Recepcionista ──────────────────────────────────────
-      protect('registro',   <RegistroPaciente />),
-      protect('perfil',     <Placeholder title="Mi Perfil" />),
-      protect('ajustes',    <Placeholder title="Configuración" />),
+      protect('registro',              <RegistroPaciente />),
+      protect('cobertura',             <VerificacionCobertura />),
+      protect('facturacion',           <Facturacion />),
+      protect('perfil',                <Placeholder title="Mi Perfil" />),
+      protect('ajustes',               <Placeholder title="Configuración" />),
 
-      // ── Próximamente ───────────────────────────────────────
-      protect('triaje',             <Placeholder title="Triaje y Urgencias" />),
-      protect('camas',              <Placeholder title="Control de Camas" />),
-      protect('historial',          <Placeholder title="Historial Clínico" />),
-      protect('farmacia',           <Placeholder title="Farmacia" />),
-      protect('gestion-empleados',  <GestionEmpleados />),
-      protect('reportes',           <Placeholder title="Reportes" />),
-      protect('turnos',             <Placeholder title="Turnos" />),
+      // ── Clínico ────────────────────────────────────────────
+      protect('triaje',                <ColaEspera />),
+      protect('camas',                 <Placeholder title="Control de Camas" />),
+      protect('historial',             <HistorialAdmin />),
+      protect('farmacia',              <Placeholder title="Farmacia" />),
+
+      // ── Admin ──────────────────────────────────────────────
+      protect('gestion-empleados',     <GestionEmpleados />),
+      protect('reportes',              <Placeholder title="Reportes" />),
+      protect('turnos',                <Placeholder title="Turnos" />),
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

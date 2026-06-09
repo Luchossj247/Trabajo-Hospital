@@ -6,7 +6,6 @@ import {
   MapPin, Calendar, CreditCard, Loader2, CheckCircle2,
 } from 'lucide-react'
 
-// ── Estado inicial del formulario ─────────────────────────────
 const EMPTY_FORM = {
   // Datos personales
   nombre:          '',
@@ -16,7 +15,6 @@ const EMPTY_FORM = {
   dni:             '',
   telefono:        '',
   email:           '',
-  // Dirección
   direccion:       '',
   // Contacto de emergencia
   contactoEmergenciaNombre:   '',
@@ -25,12 +23,10 @@ const EMPTY_FORM = {
   grupoSanguineo: '',
   alergias:       '',
   // Cobertura
-  obraSocial:      '',
-  plan:            '',
-  numeroAfiliado:  '',
+  obraSocial:     '',
+  numeroAfiliado: '',
 }
 
-// ── Componente de campo reutilizable ──────────────────────────
 const Field = ({ label, error, children }) => (
   <div className="space-y-1.5">
     <label className="text-sm font-medium text-slate-700">{label}</label>
@@ -49,18 +45,16 @@ const selectClass = (hasError) =>
    focus-visible:ring-2 focus-visible:ring-[#013FF6] focus-visible:ring-offset-1
    ${hasError ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`
 
-// ── Validación ────────────────────────────────────────────────
 function validate(form) {
   const errors = {}
-  if (!form.nombre.trim())          errors.nombre   = 'El nombre es obligatorio'
-  if (!form.apellido.trim())        errors.apellido = 'El apellido es obligatorio'
-  if (!form.dni.trim())             errors.dni      = 'El DNI es obligatorio'
-  if (!form.fechaNacimiento)        errors.fechaNacimiento = 'La fecha de nacimiento es obligatoria'
-  if (!form.sexo)                   errors.sexo     = 'Seleccioná el sexo'
+  if (!form.nombre.trim())       errors.nombre          = 'El nombre es obligatorio'
+  if (!form.apellido.trim())     errors.apellido        = 'El apellido es obligatorio'
+  if (!form.dni.trim())          errors.dni             = 'El DNI es obligatorio'
+  if (!form.fechaNacimiento)     errors.fechaNacimiento = 'La fecha de nacimiento es obligatoria'
+  if (!form.sexo)                errors.sexo            = 'Seleccioná el sexo'
   return errors
 }
 
-// ── Componente principal ──────────────────────────────────────
 export function RegistroPaciente() {
   const navigate = useNavigate()
   const [form, setForm]       = useState(EMPTY_FORM)
@@ -77,39 +71,35 @@ export function RegistroPaciente() {
     const validationErrors = validate(form)
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
-      // Scroll al primer error
-      const firstError = document.querySelector('[data-error="true"]')
-      firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
 
     setSaving(true)
     try {
-      // Separar datos del paciente de la cobertura
       const pacienteData = {
-        nombre:          form.nombre.trim(),
-        apellido:        form.apellido.trim(),
-        dni:             form.dni.trim(),
-        fechaNacimiento: form.fechaNacimiento,
-        sexo:            form.sexo,
-        telefono:        form.telefono.trim() || null,
-        email:           form.email.trim()    || null,
+        nombre:                    form.nombre.trim(),
+        apellido:                  form.apellido.trim(),
+        dni:                       form.dni.trim(),
+        fechaNacimiento:           form.fechaNacimiento,
+        sexo:                      form.sexo,
+        telefono:                  form.telefono.trim()  || null,
+        email:                     form.email.trim()     || null,
+        direccion:                 form.direccion.trim() || null,
+        contactoEmergenciaNombre:  form.contactoEmergenciaNombre.trim()   || null,
+        contactoEmergenciaTelefono: form.contactoEmergenciaTelefono.trim() || null,
+        grupoSanguineo:            form.grupoSanguineo   || null,
+        alergias:                  form.alergias.trim()  || null,
       }
 
-      const coberturaData = form.obraSocial.trim()
-        ? {
-            obraSocial:     form.obraSocial.trim(),
-            numeroAfiliado: form.numeroAfiliado.trim() || null,
-            activa:         true,
-          }
-        : null
+      const coberturaData = {
+        obraSocial:     form.obraSocial.trim()     || null,
+        numeroAfiliado: form.numeroAfiliado.trim() || null,
+      }
 
       await createPacienteConCobertura(pacienteData, coberturaData)
-
       setSuccess(true)
       setTimeout(() => navigate('/empleado/registro'), 2000)
     } catch (err) {
-      // Errores comunes de Supabase
       if (err.message?.includes('duplicate') || err.message?.includes('unique')) {
         setErrors({ dni: 'Ya existe un paciente con ese DNI' })
       } else {
@@ -120,7 +110,6 @@ export function RegistroPaciente() {
     }
   }
 
-  // ── Pantalla de éxito ─────────────────────────────────────────
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
@@ -149,7 +138,7 @@ export function RegistroPaciente() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/empleado/registro')}
             className="flex items-center px-4 py-2 rounded-xl border border-slate-200
               text-sm font-medium hover:bg-slate-50 transition-colors"
           >
@@ -189,7 +178,6 @@ export function RegistroPaciente() {
 
             <Field label="Nombres *" error={errors.nombre}>
               <input
-                data-error={!!errors.nombre}
                 value={form.nombre}
                 onChange={e => setField('nombre', e.target.value)}
                 placeholder="Ej: Juan Carlos"
@@ -199,11 +187,19 @@ export function RegistroPaciente() {
 
             <Field label="Apellidos *" error={errors.apellido}>
               <input
-                data-error={!!errors.apellido}
                 value={form.apellido}
                 onChange={e => setField('apellido', e.target.value)}
-                placeholder="Ej: Pérez Gómez"
+                placeholder="Ej: Pérez"
                 className={inputClass(errors.apellido)}
+              />
+            </Field>
+
+            <Field label="DNI *" error={errors.dni}>
+              <input
+                value={form.dni}
+                onChange={e => setField('dni', e.target.value)}
+                placeholder="Ej: 12345678"
+                className={inputClass(errors.dni)}
               />
             </Field>
 
@@ -212,7 +208,6 @@ export function RegistroPaciente() {
                 <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
                 <input
                   type="date"
-                  data-error={!!errors.fechaNacimiento}
                   value={form.fechaNacimiento}
                   onChange={e => setField('fechaNacimiento', e.target.value)}
                   className={`${inputClass(errors.fechaNacimiento)} pl-9`}
@@ -222,7 +217,6 @@ export function RegistroPaciente() {
 
             <Field label="Sexo *" error={errors.sexo}>
               <select
-                data-error={!!errors.sexo}
                 value={form.sexo}
                 onChange={e => setField('sexo', e.target.value)}
                 className={selectClass(errors.sexo)}
@@ -234,13 +228,25 @@ export function RegistroPaciente() {
               </select>
             </Field>
 
-            <Field label="DNI *" error={errors.dni}>
+            <Field label="Grupo Sanguíneo">
+              <select
+                value={form.grupoSanguineo}
+                onChange={e => setField('grupoSanguineo', e.target.value)}
+                className={selectClass(false)}
+              >
+                <option value="">Desconocido</option>
+                {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Alergias Conocidas">
               <input
-                data-error={!!errors.dni}
-                value={form.dni}
-                onChange={e => setField('dni', e.target.value)}
-                placeholder="Ej: 12345678"
-                className={inputClass(errors.dni)}
+                value={form.alergias}
+                onChange={e => setField('alergias', e.target.value)}
+                placeholder="Ej: Penicilina, Yodo..."
+                className={inputClass(false)}
               />
             </Field>
 
@@ -255,17 +261,19 @@ export function RegistroPaciente() {
           </div>
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
 
-            <Field label="Dirección" error={errors.direccion}>
-              <div className="relative md:col-span-2">
-                <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
-                <input
-                  value={form.direccion}
-                  onChange={e => setField('direccion', e.target.value)}
-                  placeholder="Ej: Peru 850"
-                  className={`${inputClass(false)} pl-9`}
-                />
-              </div>
-            </Field>
+            <div className="md:col-span-2">
+              <Field label="Dirección">
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <input
+                    value={form.direccion}
+                    onChange={e => setField('direccion', e.target.value)}
+                    placeholder="Ej: Av. Corrientes 1234"
+                    className={`${inputClass(false)} pl-9`}
+                  />
+                </div>
+              </Field>
+            </div>
 
             <Field label="Teléfono">
               <input
@@ -311,13 +319,13 @@ export function RegistroPaciente() {
           </div>
         </div>
 
-        {/* ── Cobertura y Clínica ───────────────────────────── */}
+        {/* ── Cobertura Médica ──────────────────────────────── */}
         <div className="col-span-12 md:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm">
           <div className="bg-[#ACEC00]/10 border-b border-[#ACEC00]/20 px-6 py-4 flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-[#013FF6]" />
-            <h3 className="text-base font-semibold text-slate-900">Cobertura & Alertas Clínicas</h3>
+            <h3 className="text-base font-semibold text-slate-900">Cobertura Médica</h3>
           </div>
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="p-6 space-y-5">
 
             <Field label="Obra Social / Prepaga">
               <select
@@ -336,53 +344,22 @@ export function RegistroPaciente() {
               </select>
             </Field>
 
-            <Field label="Plan">
-              <input
-                value={form.plan}
-                onChange={e => setField('plan', e.target.value)}
-                placeholder="Ej: 210, Classic..."
-                disabled={!form.obraSocial}
-                className={`${inputClass(false)} disabled:opacity-50 disabled:cursor-not-allowed`}
-              />
-            </Field>
-
             <Field label="Nº de Afiliado">
               <input
                 value={form.numeroAfiliado}
                 onChange={e => setField('numeroAfiliado', e.target.value)}
-                placeholder="Número credencial"
+                placeholder="Número de credencial"
                 disabled={!form.obraSocial}
                 className={`${inputClass(false)} disabled:opacity-50 disabled:cursor-not-allowed`}
               />
             </Field>
 
-            <div className="md:col-span-2 pt-3 border-t border-slate-100">
-              <p className="text-sm font-semibold text-[#013FF6] flex items-center gap-2 mb-3">
-                <Activity className="h-4 w-4" /> Alertas Clínicas
+            {/* Info de cobertura por defecto */}
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+              <p className="text-xs text-blue-700 font-medium flex items-center gap-1.5">
+                <Activity className="h-3.5 w-3.5 flex-shrink-0" />
+                Por defecto se asume que la obra social cubre la atención. Puede ajustarse posteriormente.
               </p>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Grupo Sanguíneo">
-                  <select
-                    value={form.grupoSanguineo}
-                    onChange={e => setField('grupoSanguineo', e.target.value)}
-                    className={selectClass(false)}
-                  >
-                    <option value="">Desconocido</option>
-                    {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </Field>
-
-                <Field label="Alergias Conocidas">
-                  <input
-                    value={form.alergias}
-                    onChange={e => setField('alergias', e.target.value)}
-                    placeholder="Ej: Penicilina, Yodo..."
-                    className={inputClass(false)}
-                  />
-                </Field>
-              </div>
             </div>
 
           </div>
@@ -393,7 +370,7 @@ export function RegistroPaciente() {
       {/* Botones finales */}
       <div className="flex justify-end gap-3 pb-6">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/empleado/registro')}
           className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-medium
             hover:bg-slate-50 transition-colors"
         >
