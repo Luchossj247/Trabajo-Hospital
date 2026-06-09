@@ -10,7 +10,7 @@ import { hasAccess } from '../config/employeePermissions.js'
 
 const ALL_NAV_ITEMS = [
   { name: 'Dashboard',          href: '/empleado',                   icon: LayoutDashboard, route: 'dashboard',         section: 'main'  },
-  { name: 'Triaje y Urgencias', href: '/empleado/triaje',            icon: HeartPulse,      route: 'triaje',            section: 'main', alert: 3 },
+  { name: 'Triaje y Urgencias', href: '/empleado/triaje',            icon: HeartPulse,      route: 'triaje',            section: 'main'},
   { name: 'Registro Pacientes', href: '/empleado/registro',          icon: UserPlus,        route: 'registro',          section: 'main'  },
   { name: 'Control de Camas',   href: '/empleado/camas',             icon: BedDouble,       route: 'camas',             section: 'main'  },
   { name: 'Historial Clínico',  href: '/empleado/historial',         icon: FileText,        route: 'historial',         section: 'main'  },

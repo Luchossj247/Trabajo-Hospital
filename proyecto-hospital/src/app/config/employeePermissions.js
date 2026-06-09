@@ -1,6 +1,9 @@
+// Las keys deben coincidir EXACTAMENTE con los valores de `rol` en la tabla `usuario`
+
 export const menuPermissions = {
-  // Administrador del SISTEMA — acceso total
-  admin: {
+
+  // ── Administrador — acceso total ──────────────────────────
+  administrador: {
     fullAccess: true,
     routes: [
       'dashboard', 'triaje', 'registro', 'camas', 'historial',
@@ -9,37 +12,51 @@ export const menuPermissions = {
     ],
   },
 
-  // Recepcionista — admisión de pacientes
-  receptionist: {
+  // ── Médico — atención clínica ─────────────────────────────
+  medico: {
     fullAccess: false,
-    routes: ['dashboard', 'registro', 'perfil', 'ajustes'],
+    routes: [
+      'dashboard', 'triaje', 'camas', 'historial',
+      'perfil', 'ajustes',
+    ],
   },
 
-  // Roles pendientes de implementación
-  doctor: {
+  // ── Enfermero/a — soporte clínico ─────────────────────────
+  enfermero: {
     fullAccess: false,
-    routes: ['dashboard', 'perfil'],
+    routes: [
+      'dashboard', 'triaje', 'camas',
+      'perfil', 'ajustes',
+    ],
   },
-  nurse: {
+
+  // ── Farmacéutico — farmacia e inventario ──────────────────
+  farmacia: {
     fullAccess: false,
-    routes: ['dashboard', 'perfil'],
+    routes: [
+      'dashboard', 'farmacia',
+      'perfil', 'ajustes',
+    ],
   },
-  pharmacist: {
+
+  // ── Recepcionista — admisión de pacientes ─────────────────
+  recepcionista: {
     fullAccess: false,
-    routes: ['dashboard', 'perfil'],
+    routes: [
+      'dashboard', 'registro', 'turnos',
+      'perfil', 'ajustes',
+    ],
   },
 }
 
-export function hasAccess(employeeType, route) {
-  const permissions = menuPermissions[employeeType]
+export function hasAccess(rol, route) {
+  const permissions = menuPermissions[rol]
   if (!permissions) return false
   if (permissions.fullAccess) return true
   return permissions.routes.includes(route)
 }
 
-export function getDefaultRoute(employeeType) {
-  switch (employeeType) {
-    case 'receptionist': return '/empleado'
-    default:             return '/empleado'
-  }
+export function getDefaultRoute(rol) {
+  // Todos arrancan en el dashboard; el layout muestra lo que corresponde según rol
+  return '/empleado'
 }

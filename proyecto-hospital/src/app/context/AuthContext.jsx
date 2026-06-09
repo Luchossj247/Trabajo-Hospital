@@ -4,11 +4,10 @@ import { supabase } from '../../lib/supabaseClient'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession]   = useState(undefined)
-  const [perfil,  setPerfil]    = useState(null)
-  const [loading, setLoading]   = useState(true)
+  const [session, setSession] = useState(undefined)
+  const [perfil,  setPerfil]  = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  // Carga el perfil desde tabla `usuario` usando el id del auth user
   const loadPerfil = async (userId) => {
     const { data, error } = await supabase
       .from('usuario')
@@ -24,27 +23,26 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    // Sesión actual al montar
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) {
-        const p = await loadPerfil(session.user.id)
-        setPerfil(p)
-      }
-      setLoading(false)
-    })
-
-    // Escucha cambios de sesión (login / logout)
+    // onAuthStateChange dispara INITIAL_SESSION al montar con la sesión actual
+    // (o null si no hay). Es la única fuente de verdad — eliminamos getSession()
+    // que competía con este listener y causaba loading infinito en Chrome.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         setSession(session)
+
         if (session?.user) {
-          const p = await loadPerfil(session.user.id)
-          setPerfil(p)
+          // Usamos setTimeout para ceder el hilo antes de la query a Supabase.
+          // Evita deadlock en Chrome cuando Auth y PostgREST comparten el mismo
+          // fetch queue durante el evento INITIAL_SESSION.
+          setTimeout(async () => {
+            const p = await loadPerfil(session.user.id)
+            setPerfil(p)
+            setLoading(false)
+          }, 0)
         } else {
           setPerfil(null)
+          setLoading(false)
         }
-        setLoading(false)
       }
     )
 
