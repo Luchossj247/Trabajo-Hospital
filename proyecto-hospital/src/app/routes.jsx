@@ -3,6 +3,7 @@ import { MainLayout } from './components/MainLayout.jsx'
 import { ProtectedRoute } from './components/ProtectedRoute.jsx'
 import { TipoUsuario } from './pages/TipoUsuario.jsx'
 import { LoginEmpleado } from './pages/LoginEmpleado.jsx'
+import { useAuth } from './context/AuthContext.jsx'
 
 // Dashboards
 import { AdminDashboard } from './pages/dashboards/AdminDashboard.jsx'
@@ -25,12 +26,13 @@ function Placeholder({ title }) {
   )
 }
 
+// Dashboard dinámico según rol del perfil
 function EmployeeDashboard() {
-  const employeeType = sessionStorage.getItem('employeeType')
-  switch (employeeType) {
-    case 'admin':        return <AdminDashboard />
-    case 'receptionist': return <ReceptionistDashboard />
-    default:             return <Placeholder title="Dashboard" />
+  const { perfil } = useAuth()
+  switch (perfil?.rol) {
+    case 'administrador': return <AdminDashboard />
+    case 'recepcionista': return <ReceptionistDashboard />
+    default:              return <Placeholder title="Dashboard" />
   }
 }
 
@@ -40,24 +42,24 @@ const protect = (route, element) => ({
 })
 
 export const router = createBrowserRouter([
-  { path: '/', Component: TipoUsuario },
+  { path: '/',               Component: TipoUsuario   },
   { path: '/empleado-login', Component: LoginEmpleado },
   {
     path: '/empleado',
     Component: MainLayout,
     children: [
       { index: true, Component: EmployeeDashboard },
-      protect('registro',           <RegistroPaciente />),
-      protect('camas',              <ControlCamas />),
-      protect('triaje',             <Placeholder title="Triaje y Urgencias" />),
-      protect('historial',          <Placeholder title="Historial Clínico" />),
-      protect('farmacia',           <Placeholder title="Farmacia" />),
-      protect('perfil',             <Placeholder title="Mi Perfil" />),
-      protect('ajustes',            <Placeholder title="Configuración" />),
+      protect('registro',          <RegistroPaciente />),
+      protect('camas',             <ControlCamas />),
+      protect('triaje',            <Placeholder title="Triaje y Urgencias" />),
+      protect('historial',         <Placeholder title="Historial Clínico" />),
+      protect('farmacia',          <Placeholder title="Farmacia" />),
+      protect('perfil',            <Placeholder title="Mi Perfil" />),
+      protect('ajustes',           <Placeholder title="Configuración" />),
       // Admin-only
-      protect('gestion-empleados',  <GestionEmpleados />),
-      protect('reportes',           <Reportes />),
-      protect('turnos',             <Turnos />),
+      protect('gestion-empleados', <GestionEmpleados />),
+      protect('reportes',          <Reportes />),
+      protect('turnos',            <Turnos />),
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },
