@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   getUsuarios, createUsuario, updateUsuario,
-  deleteUsuario, toggleUsuarioActivo, searchUsuarios,
+  deleteUsuario, toggleUsuarioActivo, searchUsuarios, resetPassword,
 } from '../../services/usuarioService'
 import {
   Shield, Plus, Search, Edit2, Trash2, X, Save, Loader2,
   Stethoscope, Users, Pill, ClipboardList, CheckCircle2,
-  AlertCircle, RefreshCw,
+  AlertCircle, RefreshCw, KeyRound,
 } from 'lucide-react'
 
 // ── Constantes ────────────────────────────────────────────────
@@ -63,24 +63,29 @@ const SkeletonRow = () => (
 
 // ── Componente principal ──────────────────────────────────────
 export function GestionEmpleados() {
-  const [usuarios, setUsuarios]     = useState([])
-  const [filtered, setFiltered]     = useState([])
-  const [search, setSearch]         = useState('')
-  const [roleFilter, setRoleFilter] = useState('all')
-  const [loading, setLoading]       = useState(true)
-  const [saving, setSaving]         = useState(false)
-  const [showModal, setShowModal]   = useState(false)
-  const [editTarget, setEditTarget] = useState(null)
-  const [form, setForm]             = useState(EMPTY_FORM)
-  const [toast, setToast]           = useState(null)
+  const [usuarios, setUsuarios]         = useState([])
+  const [filtered, setFiltered]         = useState([])
+  const [search, setSearch]             = useState('')
+  const [roleFilter, setRoleFilter]     = useState('all')
+  const [loading, setLoading]           = useState(true)
+  const [saving, setSaving]             = useState(false)
+  const [showModal, setShowModal]       = useState(false)
+  const [editTarget, setEditTarget]     = useState(null)
+  const [form, setForm]                 = useState(EMPTY_FORM)
+  const [toast, setToast]               = useState(null)
 
-  // ── Toast helper ────────────────────────────────────────────
+  // Estado para modal de reseteo de contraseña
+  const [resetTarget, setResetTarget]   = useState(null)
+  const [newPassword, setNewPassword]   = useState('')
+  const [resetting, setResetting]       = useState(false)
+
+  // ── Toast helper ─────────────────────────────────────────────
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3500)
   }
 
-  // ── Fetch ────────────────────────────────────────────────────
+  // ── Fetch ─────────────────────────────────────────────────────
   const fetchUsuarios = useCallback(async () => {
     setLoading(true)
     try {
@@ -95,14 +100,14 @@ export function GestionEmpleados() {
 
   useEffect(() => { fetchUsuarios() }, [fetchUsuarios])
 
-  // ── Filtrado local ───────────────────────────────────────────
+  // ── Filtrado local ────────────────────────────────────────────
   useEffect(() => {
     let list = usuarios
     if (roleFilter !== 'all') list = list.filter(u => u.rol === roleFilter)
     setFiltered(list)
   }, [usuarios, roleFilter])
 
-  // ── Búsqueda con debounce ────────────────────────────────────
+  // ── Búsqueda con debounce ─────────────────────────────────────
   useEffect(() => {
     if (!search.trim()) {
       fetchUsuarios()
@@ -119,14 +124,17 @@ export function GestionEmpleados() {
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Modal helpers ────────────────────────────────────────────
+  // ── Modal helpers ─────────────────────────────────────────────
   const openCreate = () => { setEditTarget(null); setForm(EMPTY_FORM); setShowModal(true) }
   const openEdit   = (u)  => { setEditTarget(u);  setForm({ ...u, passwordHash: '' }); setShowModal(true) }
   const closeModal = ()   => { setShowModal(false); setEditTarget(null) }
 
+  const openReset  = (u)  => { setResetTarget(u); setNewPassword('') }
+  const closeReset = ()   => { setResetTarget(null); setNewPassword('') }
+
   const setField = (key, val) => setForm(prev => ({ ...prev, [key]: val }))
 
-  // ── Guardar ──────────────────────────────────────────────────
+  // ── Guardar usuario ───────────────────────────────────────────
   const handleSave = async () => {
     if (!form.nombre.trim() || !form.apellido.trim()) {
       return showToast('Nombre y apellido son obligatorios.', 'error')
@@ -134,21 +142,19 @@ export function GestionEmpleados() {
     if (!editTarget && !form.email.trim()) {
       return showToast('El email es obligatorio.', 'error')
     }
+    if (!editTarget && !form.passwordHash.trim()) {
+      return showToast('La contraseña es obligatoria.', 'error')
+    }
 
     setSaving(true)
     try {
-      const payload = { ...form }
-      // No enviar passwordHash vacío en edición
-      if (editTarget && !payload.passwordHash) delete payload.passwordHash
-
       if (editTarget) {
-        await updateUsuario(editTarget.id, payload)
+        await updateUsuario(editTarget.id, form)
         showToast('Usuario actualizado correctamente.')
       } else {
-        await createUsuario(payload)
+        await createUsuario(form)
         showToast('Usuario creado correctamente.')
       }
-
       closeModal()
       fetchUsuarios()
     } catch (err) {
@@ -158,7 +164,7 @@ export function GestionEmpleados() {
     }
   }
 
-  // ── Eliminar ─────────────────────────────────────────────────
+  // ── Eliminar ──────────────────────────────────────────────────
   const handleDelete = async (u) => {
     if (!confirm(`¿Eliminar a ${u.nombre} ${u.apellido}? Esta acción no se puede deshacer.`)) return
     try {
@@ -179,6 +185,27 @@ export function GestionEmpleados() {
       )
     } catch (err) {
       showToast(err.message, 'error')
+    }
+  }
+
+  // ── Resetear contraseña ───────────────────────────────────────
+  const handleResetPassword = async () => {
+    if (!newPassword.trim()) {
+      return showToast('Ingresá la nueva contraseña.', 'error')
+    }
+    if (newPassword.length < 6) {
+      return showToast('La contraseña debe tener al menos 6 caracteres.', 'error')
+    }
+
+    setResetting(true)
+    try {
+      await resetPassword(resetTarget.id, newPassword)
+      showToast(`Contraseña de ${resetTarget.nombre} actualizada correctamente.`)
+      closeReset()
+    } catch (err) {
+      showToast(err.message || 'Error al cambiar la contraseña.', 'error')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -277,9 +304,6 @@ export function GestionEmpleados() {
                     <td colSpan={6} className="px-5 py-12 text-center">
                       <Users className="h-10 w-10 text-slate-200 mx-auto mb-3" />
                       <p className="text-slate-400 font-medium">Sin resultados</p>
-                      <p className="text-xs text-slate-300 mt-1">
-                        {search ? `No hay usuarios que coincidan con "${search}"` : 'Aún no hay usuarios registrados'}
-                      </p>
                     </td>
                   </tr>
                 )
@@ -295,30 +319,23 @@ export function GestionEmpleados() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div
-                            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0
-                              text-sm font-bold text-white"
+                            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold text-white"
                             style={{ backgroundColor: rol?.color || '#94a3b8' }}
                           >
                             {(u.nombre || 'U')[0].toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-semibold text-slate-900">
-                              {u.nombre} {u.apellido}
-                            </p>
+                            <p className="font-semibold text-slate-900">{u.nombre} {u.apellido}</p>
                             <p className="text-xs text-slate-400">{u.email}</p>
                           </div>
                         </div>
                       </td>
 
                       {/* Email */}
-                      <td className="px-5 py-3.5 text-slate-500 hidden md:table-cell">
-                        {u.email}
-                      </td>
+                      <td className="px-5 py-3.5 text-slate-500 hidden md:table-cell">{u.email}</td>
 
                       {/* Rol */}
-                      <td className="px-5 py-3.5">
-                        <RoleBadge rol={u.rol} />
-                      </td>
+                      <td className="px-5 py-3.5"><RoleBadge rol={u.rol} /></td>
 
                       {/* Estado */}
                       <td className="px-5 py-3.5">
@@ -349,16 +366,21 @@ export function GestionEmpleados() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => openEdit(u)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#013FF6]
-                              hover:bg-[#013FF6]/10 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#013FF6] hover:bg-[#013FF6]/10 transition-colors"
                             title="Editar"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
+                            onClick={() => openReset(u)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition-colors"
+                            title="Cambiar contraseña"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleDelete(u)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500
-                              hover:bg-red-50 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                             title="Eliminar"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -372,7 +394,6 @@ export function GestionEmpleados() {
           </tbody>
         </table>
 
-        {/* Footer con conteo */}
         {!loading && filtered.length > 0 && (
           <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50">
             <p className="text-xs text-slate-400">
@@ -383,7 +404,7 @@ export function GestionEmpleados() {
         )}
       </div>
 
-      {/* Modal crear / editar */}
+      {/* ── Modal crear / editar ────────────────────────────── */}
       {showModal && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
@@ -393,7 +414,6 @@ export function GestionEmpleados() {
             className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}
           >
-            {/* Header modal */}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">
@@ -403,15 +423,11 @@ export function GestionEmpleados() {
                   {editTarget ? 'Modificá los datos del usuario' : 'Completá los datos para crear el usuario'}
                 </p>
               </div>
-              <button
-                onClick={closeModal}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
-              >
+              <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Campos */}
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {[
@@ -424,8 +440,7 @@ export function GestionEmpleados() {
                       value={form[key] || ''}
                       onChange={e => setField(key, e.target.value)}
                       placeholder={placeholder}
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm
-                        focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
                     />
                   </div>
                 ))}
@@ -438,24 +453,26 @@ export function GestionEmpleados() {
                   value={form.email || ''}
                   onChange={e => setField('email', e.target.value)}
                   placeholder="usuario@hospital.com"
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm
-                    focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
+                  disabled={!!editTarget}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40 disabled:opacity-50 disabled:bg-slate-50"
                 />
+                {editTarget && (
+                  <p className="text-xs text-slate-400 mt-1">El email no se puede modificar. Usá el botón 🔑 para cambiar la contraseña.</p>
+                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                  {editTarget ? 'Nueva Contraseña (dejar vacío para no cambiar)' : 'Contraseña *'}
-                </label>
-                <input
-                  type="password"
-                  value={form.passwordHash || ''}
-                  onChange={e => setField('passwordHash', e.target.value)}
-                  placeholder={editTarget ? '••••••••' : 'Mínimo 8 caracteres'}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm
-                    focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
-                />
-              </div>
+              {!editTarget && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Contraseña *</label>
+                  <input
+                    type="password"
+                    value={form.passwordHash || ''}
+                    onChange={e => setField('passwordHash', e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Rol</label>
@@ -480,7 +497,6 @@ export function GestionEmpleados() {
                 </div>
               </div>
 
-              {/* Toggle activo */}
               <div
                 className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer"
                 onClick={() => setField('activo', !form.activo)}
@@ -497,12 +513,10 @@ export function GestionEmpleados() {
               </div>
             </div>
 
-            {/* Acciones modal */}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={closeModal}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold
-                  text-slate-600 hover:bg-slate-50 transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
               >
                 Cancelar
               </button>
@@ -510,13 +524,76 @@ export function GestionEmpleados() {
                 onClick={handleSave}
                 disabled={saving}
                 className="flex-1 py-2.5 rounded-xl bg-[#013FF6] text-white text-sm font-semibold
-                  hover:bg-[#0033cc] transition-colors flex items-center justify-center gap-2
-                  disabled:opacity-60 disabled:cursor-not-allowed"
+                  hover:bg-[#0033cc] flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {saving
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Save className="h-4 w-4" />}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {editTarget ? 'Guardar Cambios' : 'Crear Usuario'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal resetear contraseña ───────────────────────── */}
+      {resetTarget && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={closeReset}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                  <KeyRound className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Cambiar contraseña</h2>
+                  <p className="text-xs text-slate-400">{resetTarget.nombre} {resetTarget.apellido}</p>
+                </div>
+              </div>
+              <button onClick={closeReset} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Nueva contraseña
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  autoFocus
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm
+                    focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                />
+              </div>
+              <p className="text-xs text-slate-400">
+                El empleado podrá usar esta contraseña la próxima vez que inicie sesión.
+              </p>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={closeReset}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleResetPassword}
+                disabled={resetting}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold
+                  hover:bg-amber-600 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                Cambiar
               </button>
             </div>
           </div>

@@ -1,5 +1,27 @@
 import { supabase } from '../lib/supabaseClient'
 
+const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
+
+// ── Helper para llamar Edge Functions con el JWT del usuario actual ──
+async function callFunction(name, body) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) throw new Error('No hay sesión activa')
+
+  const res = await fetch(`${FUNCTIONS_URL}/${name}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  })
+
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || `Error ${res.status}`)
+  return json
+}
+
 // ── Obtener todos los usuarios ────────────────────────────────
 export async function getUsuarios() {
   const { data, error } = await supabase
@@ -23,23 +45,23 @@ export async function getUsuarioById(id) {
   return data
 }
 
-// ── Crear usuario ─────────────────────────────────────────────
-export async function createUsuario(usuario) {
-  const { data, error } = await supabase
-    .from('usuario')
-    .insert([usuario])
-    .select()
-    .single()
-
-  if (error) throw error
-  return data
+// ── Crear usuario (Auth + tabla) vía Edge Function ────────────
+export async function createUsuario({ nombre, apellido, email, passwordHash, rol, activo = true }) {
+  const { user } = await callFunction('create-user', {
+    nombre, apellido, email,
+    password: passwordHash,
+    rol, activo,
+  })
+  return user
 }
 
-// ── Actualizar usuario ────────────────────────────────────────
+// ── Actualizar usuario (datos de perfil) ──────────────────────
 export async function updateUsuario(id, campos) {
+  const { passwordHash, ...rest } = campos
+
   const { data, error } = await supabase
     .from('usuario')
-    .update(campos)
+    .update(rest)
     .eq('id', id)
     .select()
     .single()
@@ -48,14 +70,14 @@ export async function updateUsuario(id, campos) {
   return data
 }
 
-// ── Eliminar usuario ──────────────────────────────────────────
-export async function deleteUsuario(id) {
-  const { error } = await supabase
-    .from('usuario')
-    .delete()
-    .eq('id', id)
+// ── Resetear contraseña (solo admin) ─────────────────────────
+export async function resetPassword(userId, newPassword) {
+  await callFunction('update-password', { userId, newPassword })
+}
 
-  if (error) throw error
+// ── Eliminar usuario (Auth + tabla) vía Edge Function ─────────
+export async function deleteUsuario(id) {
+  await callFunction('delete-user', { userId: id })
 }
 
 // ── Togglear estado activo ────────────────────────────────────
