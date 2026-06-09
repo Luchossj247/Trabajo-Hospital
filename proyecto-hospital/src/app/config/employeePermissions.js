@@ -1,5 +1,6 @@
 export const menuPermissions = {
-  administrador: {
+  // Administrador del SISTEMA — acceso total
+  admin: {
     fullAccess: true,
     routes: [
       'dashboard', 'triaje', 'registro', 'camas', 'historial',
@@ -7,35 +8,38 @@ export const menuPermissions = {
       'gestion-empleados', 'reportes', 'turnos',
     ],
   },
-  medico: {
+
+  // Recepcionista — admisión de pacientes
+  receptionist: {
     fullAccess: false,
-    routes: ['dashboard', 'triaje', 'registro', 'historial', 'perfil'],
+    routes: ['dashboard', 'registro', 'perfil', 'ajustes'],
   },
-  enfermero: {
+
+  // Roles pendientes de implementación
+  doctor: {
     fullAccess: false,
-    routes: ['dashboard', 'triaje', 'camas', 'historial', 'perfil'],
+    routes: ['dashboard', 'perfil'],
   },
-  farmacia: {
+  nurse: {
     fullAccess: false,
-    routes: ['dashboard', 'farmacia', 'perfil'],
+    routes: ['dashboard', 'perfil'],
   },
-  recepcionista: {
+  pharmacist: {
     fullAccess: false,
-    routes: ['dashboard', 'registro', 'camas', 'perfil'],
+    routes: ['dashboard', 'perfil'],
   },
 }
 
-export function hasAccess(rol, route) {
-  const permissions = menuPermissions[rol]
+export function hasAccess(employeeType, route) {
+  const permissions = menuPermissions[employeeType]
   if (!permissions) return false
   if (permissions.fullAccess) return true
   return permissions.routes.includes(route)
 }
 
-export function getDefaultRoute(rol) {
-  switch (rol) {
-    case 'farmacia':      return '/empleado/farmacia'
-    case 'recepcionista': return '/empleado/registro'
-    default:              return '/empleado'
+export function getDefaultRoute(employeeType) {
+  switch (employeeType) {
+    case 'receptionist': return '/empleado'
+    default:             return '/empleado'
   }
 }
