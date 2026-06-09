@@ -6,7 +6,7 @@ import { LoginEmpleado } from './pages/LoginEmpleado.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 
 // Dashboards
-import { AdminDashboard } from './pages/dashboards/AdminDashboard.jsx'
+import { DashboardAdmin } from './pages/dashboards/DashboardAdmin.jsx'
 import { ReceptionistDashboard } from './pages/dashboards/ReceptionistDashboard.jsx'
 
 // Pages
@@ -30,7 +30,7 @@ function Placeholder({ title }) {
 function EmployeeDashboard() {
   const { perfil } = useAuth()
   switch (perfil?.rol) {
-    case 'administrador': return <AdminDashboard />
+    case 'administrador': return <DashboardAdmin />
     case 'recepcionista': return <ReceptionistDashboard />
     default:              return <Placeholder title="Dashboard" />
   }
