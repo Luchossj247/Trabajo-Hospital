@@ -4,15 +4,15 @@ import { supabase } from '../../../lib/supabaseClient'
 import {
   UserPlus, Clock, BedDouble, RefreshCw, ChevronRight,
   CheckCircle2, AlertCircle, Shield, ShieldOff, Search,
-  Calendar, Users, Loader2,
+  Calendar, Users, Loader2, X, Phone, User, FileText,
+  Activity,
 } from 'lucide-react'
 
-// ── Helpers ───────────────────────────────────────────────────
 const fmtHour = (iso) =>
   iso ? new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '—'
 
 const fmtDate = (iso) =>
-  iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : '—'
+  iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
 const waitMinutes = (iso) => {
   if (!iso) return null
@@ -36,6 +36,188 @@ const coverageBadge = (cobertura) => {
   )
 }
 
+// ── Modal paciente ─────────────────────────────────────────────
+function ModalPaciente({ paciente, onClose }) {
+  const initials = `${paciente.nombre?.[0] ?? ''}${paciente.apellido?.[0] ?? ''}`.toUpperCase()
+  const wait = waitMinutes(paciente.createdAt)
+  const isLong = paciente.createdAt && (Date.now() - new Date(paciente.createdAt)) > 60 * 60 * 1000
+  const cobertura = paciente.coberturaMedica?.[0]
+  const guardias = paciente.guardia || []
+
+  const GUARDIA_ESTADO = {
+    en_espera:   { label: 'En espera',   color: '#f59e0b', bg: '#fef3c7' },
+    en_atencion: { label: 'En atención', color: '#013FF6', bg: '#dbeafe' },
+    finalizada:  { label: 'Finalizada',  color: '#059669', bg: '#d1fae5' },
+    derivada:    { label: 'Derivada',    color: '#8b5cf6', bg: '#ede9fe' },
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 border-b border-slate-100">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-[#013FF6]/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-lg font-bold text-[#013FF6]">{initials}</span>
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                {paciente.nombre} {paciente.apellido}
+              </h2>
+              <p className="text-sm text-slate-400">DNI {paciente.dni || '—'}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+
+          {/* Datos personales */}
+          <section>
+            <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              <User className="h-3.5 w-3.5" /> Datos personales
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nombre completo</p>
+                <p className="text-sm font-semibold text-slate-800 mt-0.5">{paciente.nombre} {paciente.apellido}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">DNI</p>
+                <p className="text-sm font-semibold text-slate-800 mt-0.5">{paciente.dni || '—'}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Fecha de nacimiento</p>
+                <p className="text-sm font-semibold text-slate-800 mt-0.5">{fmtDate(paciente.fechaNacimiento)}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Registrado</p>
+                <p className="text-sm font-semibold text-slate-800 mt-0.5">{fmtDate(paciente.createdAt)}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Tiempo de espera */}
+          <section>
+            <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              <Clock className="h-3.5 w-3.5" /> Llegada y espera
+            </h3>
+            <div className="flex gap-3">
+              <div className="flex-1 bg-slate-50 rounded-xl p-3">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hora de llegada</p>
+                <p className="text-sm font-semibold text-slate-800 mt-0.5">{fmtHour(paciente.createdAt)}</p>
+              </div>
+              <div className={`flex-1 rounded-xl p-3 ${isLong ? 'bg-red-50' : 'bg-slate-50'}`}>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tiempo en espera</p>
+                <p className={`text-sm font-semibold mt-0.5 ${isLong ? 'text-red-500' : 'text-slate-800'}`}>
+                  {wait || '—'}
+                  {isLong && ' ⚠️'}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Cobertura */}
+          <section>
+            <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              <Shield className="h-3.5 w-3.5" /> Cobertura médica
+            </h3>
+            {cobertura ? (
+              <div className="bg-[#ACEC00]/10 border border-[#ACEC00]/30 rounded-xl p-3 space-y-1">
+                <p className="text-sm font-bold text-slate-800">{cobertura.obraSocial}</p>
+                {cobertura.nroAfiliado && (
+                  <p className="text-xs text-slate-500">N° afiliado: {cobertura.nroAfiliado}</p>
+                )}
+                <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${cobertura.activa ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                  {cobertura.activa ? 'Activa' : 'Inactiva'}
+                </span>
+              </div>
+            ) : (
+              <div className="bg-slate-50 rounded-xl p-3 flex items-center gap-2 text-slate-500">
+                <ShieldOff className="h-4 w-4" />
+                <span className="text-sm font-medium">Particular — sin cobertura</span>
+              </div>
+            )}
+          </section>
+
+          {/* Contacto de emergencia */}
+          <section>
+            <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              <Phone className="h-3.5 w-3.5" /> Contacto de emergencia
+            </h3>
+            {paciente.nombreEmergencia || paciente.telefonoEmergencia ? (
+              <div className="bg-slate-50 rounded-xl p-3 space-y-1">
+                {paciente.nombreEmergencia && (
+                  <p className="text-sm font-semibold text-slate-800">{paciente.nombreEmergencia}</p>
+                )}
+                {paciente.telefonoEmergencia && (
+                  <a>
+                    href={`tel:${paciente.telefonoEmergencia}`}
+                    className="text-sm text-[#013FF6] font-medium hover:underline"
+                    {paciente.telefonoEmergencia}
+                  </a>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 bg-slate-50 rounded-xl p-3">Sin contacto registrado</p>
+            )}
+          </section>
+
+          {/* Historial de guardias */}
+          <section>
+            <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              <Activity className="h-3.5 w-3.5" /> Guardias / historial clínico
+            </h3>
+            {guardias.length === 0 ? (
+              <p className="text-sm text-slate-400 bg-slate-50 rounded-xl p-3">Sin guardias registradas</p>
+            ) : (
+              <div className="space-y-2">
+                {guardias.map(g => {
+                  const est = GUARDIA_ESTADO[g.estado] || GUARDIA_ESTADO.en_espera
+                  return (
+                    <div key={g.id} className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700">{fmtDate(g.createdAt)}</p>
+                        {g.motivoConsulta && (
+                          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{g.motivoConsulta}</p>
+                        )}
+                      </div>
+                      <span
+                        className="text-[10px] font-semibold px-2 py-1 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: est.bg, color: est.color }}
+                      >
+                        {est.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+
+        </div>
+
+        <div className="px-6 pb-6">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Stat card ─────────────────────────────────────────────────
 const StatCard = ({ label, value, sub, icon: Icon, accent, loading }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-start gap-4">
@@ -54,11 +236,12 @@ const StatCard = ({ label, value, sub, icon: Icon, accent, loading }) => (
 
 // ── Componente principal ──────────────────────────────────────
 export function ReceptionistDashboard() {
-  const [patients, setPatients]   = useState([])
-  const [freeBeds, setFreeBeds]   = useState(null)
-  const [loading, setLoading]     = useState(true)
-  const [search, setSearch]       = useState('')
-  const [lastRefresh, setLastRefresh] = useState(new Date())
+  const [patients, setPatients]         = useState([])
+  const [freeBeds, setFreeBeds]         = useState(null)
+  const [loading, setLoading]           = useState(true)
+  const [search, setSearch]             = useState('')
+  const [lastRefresh, setLastRefresh]   = useState(new Date())
+  const [selectedPatient, setSelectedPatient] = useState(null)  // ← nuevo
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -70,8 +253,10 @@ export function ReceptionistDashboard() {
         supabase
           .from('paciente')
           .select(`
-            id, nombre, apellido, dni, createdAt,
-            coberturaMedica ( obraSocial, activa )
+            id, nombre, apellido, dni, "fechaNacimiento",
+            "contactoEmergenciaNombre", "contactoEmergenciaTelefono", "createdAt",
+            "coberturaMedica" ( "obraSocial", "numeroAfiliado", "activa" ),
+            guardia ( id, estado, "createdAt" )
           `)
           .gte('createdAt', todayStart.toISOString())
           .order('createdAt', { ascending: true }),
@@ -86,9 +271,8 @@ export function ReceptionistDashboard() {
       setFreeBeds(bedsRes.data?.length ?? null)
     } catch (err) {
       console.error('Error fetching receptionist dashboard:', err)
-      // Fallback a demo si Supabase falla
-      setPatients(DEMO_PATIENTS)
-      setFreeBeds(12)
+      setPatients([])
+      setFreeBeds(null)
     } finally {
       setLoading(false)
       setLastRefresh(new Date())
@@ -97,7 +281,6 @@ export function ReceptionistDashboard() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Auto-refresh cada 2 minutos
   useEffect(() => {
     const interval = setInterval(fetchData, 120_000)
     return () => clearInterval(interval)
@@ -114,34 +297,10 @@ export function ReceptionistDashboard() {
   })
 
   const stats = [
-    {
-      label: 'Registrados hoy',
-      value: patients.length,
-      sub: 'en orden de llegada',
-      icon: Users,
-      accent: '#013FF6',
-    },
-    {
-      label: 'En espera',
-      value: patients.length,
-      sub: 'atención por turno',
-      icon: Clock,
-      accent: '#f59e0b',
-    },
-    {
-      label: 'Camas disponibles',
-      value: freeBeds ?? '—',
-      sub: 'en todas las áreas',
-      icon: BedDouble,
-      accent: '#ACEC00',
-    },
-    {
-      label: 'Con cobertura',
-      value: patients.filter(p => p.coberturaMedica?.length > 0).length,
-      sub: `de ${patients.length} hoy`,
-      icon: Shield,
-      accent: '#8b5cf6',
-    },
+    { label: 'Registrados hoy', value: patients.length, sub: 'en orden de llegada', icon: Users, accent: '#013FF6' },
+    { label: 'En espera', value: patients.length, sub: 'atención por turno', icon: Clock, accent: '#f59e0b' },
+    { label: 'Camas disponibles', value: freeBeds ?? '—', sub: 'en todas las áreas', icon: BedDouble, accent: '#ACEC00' },
+    { label: 'Con cobertura', value: patients.filter(p => p.coberturaMedica?.length > 0).length, sub: `de ${patients.length} hoy`, icon: Shield, accent: '#8b5cf6' },
   ]
 
   return (
@@ -150,9 +309,7 @@ export function ReceptionistDashboard() {
       {/* Header */}
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            Recepción
-          </h1>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Recepción</h1>
           <p className="text-slate-500 mt-1">
             {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
@@ -178,19 +335,13 @@ export function ReceptionistDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((s) => (
-          <StatCard key={s.label} {...s} loading={loading} />
-        ))}
+        {stats.map((s) => <StatCard key={s.label} {...s} loading={loading} />)}
       </div>
 
       {/* Cola de pacientes */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-
-        {/* Header tabla */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-4">
-          <h2 className="font-bold text-slate-900 whitespace-nowrap">
-            Pacientes de hoy
-          </h2>
+          <h2 className="font-bold text-slate-900 whitespace-nowrap">Pacientes de hoy</h2>
           <div className="relative flex-1 max-w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
@@ -208,7 +359,6 @@ export function ReceptionistDashboard() {
           </Link>
         </div>
 
-        {/* Tabla */}
         {loading ? (
           <div className="divide-y divide-slate-100">
             {Array(5).fill(0).map((_, i) => (
@@ -234,10 +384,7 @@ export function ReceptionistDashboard() {
               <>
                 <Users className="h-10 w-10 mb-3 text-slate-200" />
                 <p className="font-semibold">Sin pacientes registrados hoy</p>
-                <Link
-                  to="/empleado/registro"
-                  className="mt-3 text-sm font-semibold text-[#013FF6] hover:underline"
-                >
+                <Link to="/empleado/registro" className="mt-3 text-sm font-semibold text-[#013FF6] hover:underline">
                   Registrar el primero →
                 </Link>
               </>
@@ -246,49 +393,38 @@ export function ReceptionistDashboard() {
         ) : (
           <div className="divide-y divide-slate-100/80">
             {filtered.map((p, idx) => {
-              const nombre = `${p.nombre} ${p.apellido}`
+              const nombre  = `${p.nombre} ${p.apellido}`
               const initials = `${p.nombre?.[0] ?? ''}${p.apellido?.[0] ?? ''}`.toUpperCase()
-              const wait = waitMinutes(p.createdAt)
-              const isLong = p.createdAt && (Date.now() - new Date(p.createdAt)) > 60 * 60 * 1000
+              const wait    = waitMinutes(p.createdAt)
+              const isLong  = p.createdAt && (Date.now() - new Date(p.createdAt)) > 60 * 60 * 1000
 
               return (
                 <div
                   key={p.id}
                   className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50/60 transition-colors group"
                 >
-                  {/* Número de orden */}
-                  <span className="text-xs font-bold text-slate-400 w-5 text-center flex-shrink-0">
-                    {idx + 1}
-                  </span>
-
-                  {/* Avatar */}
+                  <span className="text-xs font-bold text-slate-400 w-5 text-center flex-shrink-0">{idx + 1}</span>
                   <div className="w-9 h-9 rounded-full bg-[#013FF6]/10 flex items-center justify-center flex-shrink-0">
                     <span className="text-sm font-bold text-[#013FF6]">{initials}</span>
                   </div>
-
-                  {/* Info principal */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">{nombre}</p>
                     <p className="text-xs text-slate-400 truncate">DNI {p.dni || '—'}</p>
                   </div>
-
-                  {/* Cobertura */}
                   <div className="hidden sm:block flex-shrink-0">
                     {coverageBadge(p.coberturaMedica)}
                   </div>
-
-                  {/* Hora de llegada */}
                   <div className="hidden md:flex flex-col items-end flex-shrink-0 text-right">
-                    <span className="text-xs font-semibold text-slate-700">
-                      {fmtHour(p.createdAt)}
-                    </span>
+                    <span className="text-xs font-semibold text-slate-700">{fmtHour(p.createdAt)}</span>
                     <span className={`text-[10px] font-medium ${isLong ? 'text-red-400' : 'text-slate-400'}`}>
                       {wait ? `Espera: ${wait}` : '—'}
                     </span>
                   </div>
-
-                  {/* Acción rápida */}
-                  <button className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#013FF6]/10 text-[#013FF6] hover:bg-[#013FF6]/20">
+                  {/* ← Botón Ver conectado */}
+                  <button
+                    onClick={() => setSelectedPatient(p)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#013FF6]/10 text-[#013FF6] hover:bg-[#013FF6]/20"
+                  >
                     Ver
                   </button>
                 </div>
@@ -297,7 +433,6 @@ export function ReceptionistDashboard() {
           </div>
         )}
 
-        {/* Footer */}
         {!loading && filtered.length > 0 && (
           <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/50">
             <p className="text-xs text-slate-400">
@@ -333,6 +468,13 @@ export function ReceptionistDashboard() {
         ))}
       </div>
 
+      {/* Modal */}
+      {selectedPatient && (
+        <ModalPaciente
+          paciente={selectedPatient}
+          onClose={() => setSelectedPatient(null)}
+        />
+      )}
     </div>
   )
 }
