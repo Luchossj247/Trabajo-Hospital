@@ -36,8 +36,22 @@ const coverageBadge = (cobertura) => {
   )
 }
 
+// ── Helper: obtener la guardia activa de HOY ──────────────────
+function getGuardiaActivaHoy(guardias, todayStr) {
+  if (!guardias?.length) return null
+  return guardias
+    .filter(g =>
+      ['en_espera', 'en_atencion'].includes(g.estado) &&
+      // la guardia fue creada hoy (ingresoAt o createdAt comienza con la fecha de hoy)
+      (g.ingresoAt || g.createdAt || '').startsWith(todayStr)
+    )
+    .sort((a, b) =>
+      new Date(b.ingresoAt ?? b.createdAt) - new Date(a.ingresoAt ?? a.createdAt)
+    )[0] ?? null
+}
+
 // ── Modal paciente ─────────────────────────────────────────────
-function ModalPaciente({ paciente, onClose }) {
+function ModalPaciente({ paciente, onClose, todayStr }) {
   const initials = `${paciente.nombre?.[0] ?? ''}${paciente.apellido?.[0] ?? ''}`.toUpperCase()
   const wait = waitMinutes(paciente.createdAt)
   const isLong = paciente.createdAt && (Date.now() - new Date(paciente.createdAt)) > 60 * 60 * 1000
@@ -49,11 +63,10 @@ function ModalPaciente({ paciente, onClose }) {
     en_atencion: { label: 'En atención', color: '#013FF6', bg: '#dbeafe' },
     atendido:    { label: 'Atendido',    color: '#059669', bg: '#d1fae5' },
     derivado:    { label: 'Derivado',    color: '#5b21b6', bg: '#ede9fe' },
+    alta:        { label: 'Alta',        color: '#059669', bg: '#d1fae5' },
   }
 
-  const guardiaActiva = guardias
-    .filter(g => ['en_espera', 'en_atencion'].includes(g.estado))
-    .sort((a, b) => new Date(b.ingresoAt ?? b.createdAt) - new Date(a.ingresoAt ?? a.createdAt))[0]
+  const guardiaActiva = getGuardiaActivaHoy(guardias, todayStr)
 
   return (
     <div
@@ -102,6 +115,14 @@ function ModalPaciente({ paciente, onClose }) {
               </div>
             )
           })()}
+
+          {/* Sin guardia hoy */}
+          {!guardiaActiva && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 text-slate-500 text-sm font-medium">
+              <Clock className="h-4 w-4 flex-shrink-0" />
+              Sin guardia activa hoy
+            </div>
+          )}
 
           {/* Datos personales */}
           <section>
@@ -281,6 +302,9 @@ export function ReceptionistDashboard() {
   const [lastRefresh, setLastRefresh]         = useState(new Date())
   const [selectedPatient, setSelectedPatient] = useState(null)
 
+  // String de fecha de hoy en formato "YYYY-MM-DD" para comparar con ISO timestamps
+  const todayStr = new Date().toISOString().split('T')[0]
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -294,20 +318,20 @@ export function ReceptionistDashboard() {
             id, nombre, apellido, dni, "fechaNacimiento",
             "contactoEmergenciaNombre", "contactoEmergenciaTelefono", "createdAt",
             "coberturaMedica" ( "obraSocial", "numeroAfiliado", "estadoCobertura" ),
-            guardia ( id, estado, "createdAt" )
+            guardia ( id, estado, "ingresoAt", "createdAt" )
           `)
-            .gte('"createdAt"', todayStart.toISOString())
-            .order('"createdAt"', { ascending: true }),
-            
+          .gte('"createdAt"', todayStart.toISOString())
+          .order('"createdAt"', { ascending: true }),
+
         supabase
           .from('turno')
           .select('id, estado')
-          .eq('fecha', todayStart.toISOString())
+          .eq('fecha', todayStr)
           .neq('estado', 'cancelado'),
       ])
 
       setPatients(patientsRes.data || [])
-      setTurnosHoy(turnosRes.data?.length ?? null)
+      setTurnosHoy(turnosRes.data || [])
     } catch (err) {
       console.error('Error fetching receptionist dashboard:', err)
       setPatients([])
@@ -316,7 +340,7 @@ export function ReceptionistDashboard() {
       setLoading(false)
       setLastRefresh(new Date())
     }
-  }, [])
+  }, [todayStr])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -335,17 +359,18 @@ export function ReceptionistDashboard() {
     )
   })
 
+  // Contar pacientes con guardia activa HOY (en_espera o en_atencion)
   const enEspera = patients.filter(p =>
-    p.guardia?.some(g => g.estado === 'en_espera')
+    getGuardiaActivaHoy(p.guardia, todayStr) !== null
   ).length
 
   const conCobertura = patients.filter(p => p.coberturaMedica?.length > 0).length
 
   const stats = [
-    { label: 'Registrados hoy', value: patients.length,    sub: 'desde las 00:00',         icon: Users,    accent: '#013FF6' },
-    { label: 'En espera',       value: enEspera,            sub: 'aguardando atención',     icon: Clock,    accent: '#f59e0b' },
-    { label: 'Turnos hoy',      value: turnosHoy.length,    sub: 'consultas programadas',   icon: Calendar, accent: '#ACEC00' },
-    { label: 'Con cobertura',   value: conCobertura,        sub: `de ${patients.length} hoy`, icon: Shield, accent: '#8b5cf6' },
+    { label: 'Registrados hoy', value: patients.length,        sub: 'desde las 00:00',         icon: Users,    accent: '#013FF6' },
+    { label: 'En guardia',      value: enEspera,                sub: 'en espera o en atención', icon: Clock,    accent: '#f59e0b' },
+    { label: 'Turnos hoy',      value: turnosHoy.length,        sub: 'consultas programadas',   icon: Calendar, accent: '#ACEC00' },
+    { label: 'Con cobertura',   value: conCobertura,            sub: `de ${patients.length} hoy`, icon: Shield, accent: '#8b5cf6' },
   ]
 
   return (
@@ -443,9 +468,8 @@ export function ReceptionistDashboard() {
               const wait     = waitMinutes(p.createdAt)
               const isLong   = p.createdAt && (Date.now() - new Date(p.createdAt)) > 60 * 60 * 1000
 
-              const guardiaActiva = p.guardia
-                ?.filter(g => ['en_espera', 'en_atencion'].includes(g.estado))
-                ?.sort((a, b) => new Date(b.ingresoAt ?? b.createdAt) - new Date(a.ingresoAt ?? a.createdAt))[0]
+              // Solo considerar guardia activa de hoy
+              const guardiaActiva = getGuardiaActivaHoy(p.guardia, todayStr)
 
               const ESTADO_PILL = {
                 en_espera:   { label: 'En espera',   bg: '#fef3c7', color: '#92400e' },
@@ -469,14 +493,21 @@ export function ReceptionistDashboard() {
                   <div className="hidden sm:block flex-shrink-0">
                     {coverageBadge(p.coberturaMedica)}
                   </div>
-                  {pill && (
+
+                  {/* Pill de estado: si tiene guardia activa hoy la muestra, si no muestra "Sin guardia" */}
+                  {pill ? (
                     <span
                       className="hidden md:inline-flex text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
                       style={{ backgroundColor: pill.bg, color: pill.color }}
                     >
                       {pill.label}
                     </span>
+                  ) : (
+                    <span className="hidden md:inline-flex text-[10px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 bg-slate-100 text-slate-400">
+                      Sin guardia
+                    </span>
                   )}
+
                   <div className="hidden md:flex flex-col items-end flex-shrink-0 text-right">
                     <span className="text-xs font-semibold text-slate-700">{fmtHour(p.createdAt)}</span>
                     <span className={`text-[10px] font-medium ${isLong ? 'text-red-400' : 'text-slate-400'}`}>
@@ -500,7 +531,7 @@ export function ReceptionistDashboard() {
             <p className="text-xs text-slate-400">
               <span className="font-semibold text-slate-600">{filtered.length}</span> paciente{filtered.length !== 1 ? 's' : ''} hoy
               {enEspera > 0 && (
-                <> · <span className="font-semibold text-amber-600">{enEspera} en espera</span></>
+                <> · <span className="font-semibold text-amber-600">{enEspera} en guardia</span></>
               )}
               {conCobertura > 0 && (
                 <> · <span className="font-semibold text-slate-600">{conCobertura}</span> con cobertura</>
@@ -513,10 +544,10 @@ export function ReceptionistDashboard() {
       {/* Acciones rápidas */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Nuevo paciente',   icon: UserPlus,  href: '/empleado/registro',    color: '#013FF6' },
-          { label: 'Turnos del día',   icon: Calendar,  href: '/empleado/turnos',       color: '#ACEC00' },
-          { label: 'Cola de espera',   icon: Users,     href: '/empleado/cola-espera',  color: '#f59e0b' },
-          { label: 'Verificar coberturas', icon: Shield, href: '/empleado/cobertura',  color: '#8b5cf6' },
+          { label: 'Nuevo paciente',       icon: UserPlus,  href: '/empleado/registro',    color: '#013FF6' },
+          { label: 'Turnos del día',       icon: Calendar,  href: '/empleado/turnos',       color: '#ACEC00' },
+          { label: 'Cola de espera',       icon: Users,     href: '/empleado/cola-espera',  color: '#f59e0b' },
+          { label: 'Verificar coberturas', icon: Shield,    href: '/empleado/cobertura',    color: '#8b5cf6' },
         ].map(({ label, icon: Icon, href, color }) => (
           <Link
             key={label}
@@ -536,6 +567,7 @@ export function ReceptionistDashboard() {
         <ModalPaciente
           paciente={selectedPatient}
           onClose={() => setSelectedPatient(null)}
+          todayStr={todayStr}
         />
       )}
     </div>

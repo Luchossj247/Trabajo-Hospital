@@ -70,7 +70,7 @@ export function MainLayout() {
   const NavLink = ({ item }) => {
     const isActive =
       location.pathname === item.href ||
-      (item.href !== '/empleado' && location.pathname.startsWith(item.href))
+      (item.href !== '/empleado' && location.pathname.startsWith(item.href + '/'))
     const Icon = item.icon
 
     return (
@@ -170,10 +170,6 @@ export function MainLayout() {
             </div>
           </div>
           <div className="flex items-center space-x-4">
-            <button className="relative p-2 text-slate-400 hover:bg-slate-100 hover:text-[#013FF6] rounded-xl transition-colors">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 border-2 border-white" />
-            </button>
             <div className="h-6 w-px bg-slate-200" />
             <button
               onClick={handleLogout}
