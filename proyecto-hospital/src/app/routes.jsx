@@ -10,12 +10,13 @@ import { DashboardAdmin } from './pages/dashboards/DashboardAdmin.jsx'
 import { ReceptionistDashboard } from './pages/dashboards/ReceptionistDashboard.jsx'
 
 // Pages
-import { RegistroPaciente }      from './pages/RegistroPaciente.jsx'
-import { GestionEmpleados }      from './pages/GestionEmpleados.jsx'
+import { RegistroPaciente } from './pages/RegistroPaciente.jsx'
+import { GestionEmpleados } from './pages/GestionEmpleados.jsx'
 import { VerificacionCobertura } from './pages/VerificacionCobertura.jsx'
-import { Facturacion }           from './pages/Facturacion.jsx'
 import { HistorialAdmin }        from './pages/HistorialAdmin.jsx'
-import { ColaEspera }            from './pages/ColaEspera.jsx'
+import { Facturacion } from './pages/Facturacion.jsx'
+import { ColaEspera } from './pages/ColaEspera.jsx'
+import { HistorialAdmin } from './pages/HistorialAdmin.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -49,14 +50,12 @@ export const router = createBrowserRouter([
     Component: MainLayout,
     children: [
       { index: true, Component: EmployeeDashboard },
-
-      // ── Recepcionista ──────────────────────────────────────
       protect('registro',              <RegistroPaciente />),
-      protect('cobertura',             <VerificacionCobertura />),
-      protect('facturacion',           <Facturacion />),
+      protect('triaje',                <Placeholder title="Triaje y Urgencias" />),
+      protect('historial',             <Placeholder title="Historial Clínico — Médico" />),
+      protect('farmacia',              <Placeholder title="Farmacia" />),
       protect('perfil',                <Placeholder title="Mi Perfil" />),
       protect('ajustes',               <Placeholder title="Configuración" />),
-
       // ── Clínico ────────────────────────────────────────────
       protect('triaje',                <ColaEspera />),
       protect('camas',                 <Placeholder title="Control de Camas" />),
@@ -64,6 +63,11 @@ export const router = createBrowserRouter([
       protect('farmacia',              <Placeholder title="Farmacia" />),
 
       // ── Admin ──────────────────────────────────────────────
+      protect('cobertura',             <VerificacionCobertura />),
+      protect('facturacion',           <Facturacion />),
+      protect('cola-espera',           <ColaEspera />),
+      protect('historial-admin',       <HistorialAdmin />),
+      // Admin-only
       protect('gestion-empleados',     <GestionEmpleados />),
       protect('reportes',              <Placeholder title="Reportes" />),
       protect('turnos',                <Placeholder title="Turnos" />),

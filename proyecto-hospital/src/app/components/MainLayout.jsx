@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity, LayoutDashboard, Settings, Bell, Search, LogOut,
   User, UserPlus, BedDouble, HeartPulse, FileText, Pill,
-  Shield, BarChart2, Calendar, Loader2,
+  Shield, BarChart2, Calendar, Loader2, Clock, Receipt,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { hasAccess } from '../config/employeePermissions.js'
@@ -15,6 +15,10 @@ const ALL_NAV_ITEMS = [
   { name: 'Control de Camas',   href: '/empleado/camas',             icon: BedDouble,       route: 'camas',             section: 'main'  },
   { name: 'Historial Clínico',  href: '/empleado/historial',         icon: FileText,        route: 'historial',         section: 'main'  },
   { name: 'Farmacia',           href: '/empleado/farmacia',          icon: Pill,            route: 'farmacia',          section: 'main'  },
+  { name: 'Cobertura',          href: '/empleado/cobertura',         icon: UserPlus,        route: 'cobertura',         section: 'main'  },
+  { name: 'Cola de Espera',     href: '/empleado/cola-espera',       icon: Clock,           route: 'cola-espera',       section: 'main'  },
+  { name: 'Facturacion',        href: '/empleado/facturacion',       icon: Receipt,         route: 'facturacion',       section: 'main'  },
+  { name: 'Historial',          href: '/empleado/historial-admin',   icon: FileText,        route: 'historial-admin',   section: 'main'  },
   // Admin-only
   { name: 'Gestión Personal',   href: '/empleado/gestion-empleados', icon: Shield,          route: 'gestion-empleados', section: 'admin' },
   { name: 'Turnos',             href: '/empleado/turnos',            icon: Calendar,        route: 'turnos',            section: 'admin' },

@@ -6,7 +6,7 @@ export const menuPermissions = {
   administrador: {
     fullAccess: true,
     routes: [
-      'dashboard', 'triaje', 'registro', 'camas', 'historial',
+      'dashboard', 'triaje', 'registro', 'camas', 'historial', 'historial-admin' ,
       'farmacia', 'cobertura', 'facturacion', 'perfil', 'ajustes',
       'gestion-empleados', 'reportes', 'turnos',
     ],
@@ -43,7 +43,7 @@ export const menuPermissions = {
   recepcionista: {
     fullAccess: false,
     routes: [
-      'dashboard', 'registro', 'cobertura', 'facturacion', 'historial', 'turnos',
+      'dashboard', 'registro', 'cobertura', 'facturacion', 'historial-admin', 'turnos',
       'perfil', 'ajustes',
     ],
   },
