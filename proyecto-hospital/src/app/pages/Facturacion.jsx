@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 import {
   Receipt, Search, CheckCircle2, Clock, AlertTriangle,
   XCircle, DollarSign, ChevronRight, X, Save,
-  Loader2, Download, RefreshCw,
+  Loader2, Download, RefreshCw, Plus, User, ChevronDown,
 } from 'lucide-react'
 
 // ── Mapeos según los CHECK constraints de la BD ───────────────
@@ -21,10 +21,379 @@ const ESTADO_PAGO = {
   deuda:     { label: 'Deuda',     color: '#ef4444', bg: '#fee2e2' },
 }
 
-// ── Modal de gestión ──────────────────────────────────────────
+// ── Modal CREAR factura ───────────────────────────────────────
+function ModalCrearFactura({ onClose, onCreated }) {
+  const [guardias, setGuardias]     = useState([])
+  const [loadingG, setLoadingG]     = useState(true)
+  const [guardiaId, setGuardiaId]   = useState('')
+  const [guardiaInfo, setGuardiaInfo] = useState(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [searchG, setSearchG]       = useState('')
+  const [saving, setSaving]         = useState(false)
+  const [error, setError]           = useState(null)
+
+  const [form, setForm] = useState({
+    estadoCobertura: 'pendiente_verificacion',
+    estadoPago:      'pendiente',
+    montoTotal:      '',
+    montoObraSocial: '',
+    montoPaciente:   '',
+    observaciones:   '',
+  })
+
+  // Cargar guardias atendidas/derivadas sin factura aún
+  useEffect(() => {
+    const fetchGuardias = async () => {
+      setLoadingG(true)
+      try {
+        // Traer guardias cerradas
+        const { data: gData, error: gErr } = await supabase
+          .from('guardia')
+          .select(`
+            id, estado, "ingresoAt", "comentarioTriage",
+            paciente ( id, nombre, apellido, dni )
+          `)
+          .in('estado', ['alta', 'derivado'])
+          .order('"ingresoAt"', { ascending: false })
+
+        if (gErr) throw gErr
+
+        // Traer guardiaIds ya facturados
+        const { data: fData, error: fErr } = await supabase
+          .from('facturacion')
+          .select('"guardiaId"')
+
+        if (fErr) throw fErr
+
+        const facturadosSet = new Set((fData || []).map(f => f.guardiaId))
+        setGuardias((gData || []).filter(g => !facturadosSet.has(g.id)))
+      } catch (err) {
+        setError('Error al cargar guardias: ' + err.message)
+      } finally {
+        setLoadingG(false)
+      }
+    }
+    fetchGuardias()
+  }, [])
+
+  const setField = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const handleMontoChange = (field, value) => {
+    const val = parseFloat(value) || 0
+    if (field === 'montoTotal' || field === 'montoObraSocial') {
+      const total = field === 'montoTotal'      ? val : (parseFloat(form.montoTotal)      || 0)
+      const os    = field === 'montoObraSocial' ? val : (parseFloat(form.montoObraSocial) || 0)
+      setForm(p => ({ ...p, [field]: value, montoPaciente: Math.max(0, total - os) }))
+    } else {
+      setField(field, value)
+    }
+  }
+
+  const selectGuardia = (g) => {
+    setGuardiaId(g.id)
+    setGuardiaInfo(g)
+    setDropdownOpen(false)
+    setSearchG('')
+  }
+
+  const filteredGuardias = guardias.filter(g => {
+    const q = searchG.toLowerCase()
+    return !q || [g.paciente?.nombre, g.paciente?.apellido, g.paciente?.dni]
+      .some(v => v?.toLowerCase().includes(q))
+  })
+
+  const fmt = n => {
+    const num = parseFloat(n)
+    if (!n && n !== 0) return ''
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
+    }).format(num)
+  }
+
+  const handleSave = async () => {
+    if (!guardiaId) return setError('Seleccioná una guardia.')
+    setSaving(true)
+    setError(null)
+    try {
+      const { data, error } = await supabase
+        .from('facturacion')
+        .insert([{
+          guardiaId,
+          pacienteId:      guardiaInfo.paciente.id,
+          estadoCobertura: form.estadoCobertura,
+          estadoPago:      form.estadoPago,
+          montoTotal:      parseFloat(form.montoTotal)      || 0,
+          montoObraSocial: parseFloat(form.montoObraSocial) || 0,
+          montoPaciente:   parseFloat(form.montoPaciente)   || 0,
+          observaciones:   form.observaciones || null,
+        }])
+        .select(`
+          id, "guardiaId", "pacienteId", "estadoCobertura",
+          "montoTotal", "montoObraSocial", "montoPaciente",
+          "estadoPago", observaciones, "createdAt",
+          datosPaciente:paciente!facturacion_pacienteId_fkey ( nombre, apellido, dni )
+        `)
+        .single()
+
+      if (error) throw error
+      onCreated(data)
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Error al crear la factura.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Nueva Factura</h2>
+            <p className="text-sm text-slate-400 mt-0.5">
+              Seleccioná una guardia cerrada para facturar
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-5">
+
+          {/* Selector de guardia */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Guardia *
+            </label>
+            {loadingG ? (
+              <div className="h-11 bg-slate-100 animate-pulse rounded-xl" />
+            ) : (
+              <div className="relative">
+                <button
+                  onClick={() => setDropdownOpen(v => !v)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 border rounded-xl text-sm transition-colors
+                    ${guardiaId
+                      ? 'border-[#013FF6] bg-[#013FF6]/5 text-slate-900'
+                      : 'border-slate-200 text-slate-400 hover:border-slate-300'
+                    }`}
+                >
+                  {guardiaInfo ? (
+                    <span className="font-medium text-slate-900">
+                      {guardiaInfo.paciente?.nombre} {guardiaInfo.paciente?.apellido}
+                      <span className="text-slate-400 font-normal ml-2">
+                        — DNI {guardiaInfo.paciente?.dni}
+                      </span>
+                    </span>
+                  ) : (
+                    <span>
+                      {guardias.length === 0
+                        ? 'No hay guardias sin facturar'
+                        : 'Seleccionar guardia...'}
+                    </span>
+                  )}
+                  <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {dropdownOpen && guardias.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                    {/* Búsqueda dentro del dropdown */}
+                    <div className="p-2 border-b border-slate-100">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                        <input
+                          autoFocus
+                          value={searchG}
+                          onChange={e => setSearchG(e.target.value)}
+                          placeholder="Buscar paciente..."
+                          className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {filteredGuardias.length === 0 ? (
+                        <p className="text-xs text-slate-400 text-center py-4">Sin resultados</p>
+                      ) : filteredGuardias.map(g => (
+                        <button
+                          key={g.id}
+                          onClick={() => selectGuardia(g)}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 text-left transition-colors border-b border-slate-50 last:border-0"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-[#013FF6]/10 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-[#013FF6]">
+                              {(g.paciente?.nombre?.[0] || 'P').toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 truncate">
+                              {g.paciente?.nombre} {g.paciente?.apellido}
+                            </p>
+                            <p className="text-xs text-slate-400">DNI {g.paciente?.dni}</p>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0
+                            ${g.estado === 'alta'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-purple-100 text-purple-700'}`}
+                          >
+                            {g.estado}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Montos — solo si hay guardia seleccionada */}
+          {guardiaId && (
+            <>
+              {/* Divider */}
+              <div className="border-t border-slate-100 pt-1">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                  Datos de facturación
+                </p>
+              </div>
+
+              {/* Estado de cobertura */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Estado de cobertura
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(ESTADO_COBERTURA).map(([key, val]) => {
+                    const Icon = val.icon
+                    const sel  = form.estadoCobertura === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setField('estadoCobertura', key)}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all text-left
+                          ${sel ? 'border-transparent' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                        style={sel ? { backgroundColor: val.bg, color: val.color, borderColor: val.color } : {}}
+                      >
+                        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                        {val.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Montos */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Monto total',          field: 'montoTotal' },
+                  { label: 'A cargo obra social',   field: 'montoObraSocial' },
+                  { label: 'A cargo paciente',      field: 'montoPaciente' },
+                ].map(({ label, field }) => (
+                  <div key={field}>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">{label}</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form[field]}
+                        onChange={e => handleMontoChange(field, e.target.value)}
+                        placeholder="0"
+                        readOnly={field === 'montoPaciente'}
+                        className={`w-full pl-6 pr-2 py-2.5 border border-slate-200 rounded-xl text-sm
+                          focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40
+                          ${field === 'montoPaciente' ? 'bg-slate-50 text-slate-500' : ''}`}
+                      />
+                    </div>
+                    {form[field] !== '' && (
+                      <p className="text-[10px] text-slate-400 mt-0.5">{fmt(form[field])}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Estado de pago */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Estado de pago
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {Object.entries(ESTADO_PAGO).map(([key, val]) => {
+                    const sel = form.estadoPago === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setField('estadoPago', key)}
+                        className={`px-2 py-2 rounded-xl border-2 text-xs font-semibold transition-all
+                          ${sel ? 'border-transparent' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                        style={sel ? { backgroundColor: val.bg, color: val.color, borderColor: val.color } : {}}
+                      >
+                        {val.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Observaciones */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Observaciones
+                </label>
+                <textarea
+                  value={form.observaciones}
+                  onChange={e => setField('observaciones', e.target.value)}
+                  placeholder="Ej: OSDE autorización N° 44821 — cubre internación completa"
+                  rows={3}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm
+                    focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40 resize-none"
+                />
+              </div>
+            </>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-600">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !guardiaId}
+            className="flex-1 py-2.5 rounded-xl bg-[#013FF6] text-white text-sm font-semibold
+              hover:bg-[#0033cc] flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Crear Factura
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal de gestión (editar) ─────────────────────────────────
 function ModalFactura({ factura, onClose, onSave }) {
   const [form, setForm] = useState({
-    responsable: '',
     estadoCobertura: factura.estadoCobertura ?? 'pendiente_verificacion',
     estadoPago:      factura.estadoPago      ?? 'pendiente',
     montoTotal:      factura.montoTotal      ?? '',
@@ -36,17 +405,12 @@ function ModalFactura({ factura, onClose, onSave }) {
 
   const setField = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  // Recalcula montoPaciente automáticamente cuando cambian los otros montos
   const handleMontoChange = (field, value) => {
     const val = parseFloat(value) || 0
     if (field === 'montoTotal' || field === 'montoObraSocial') {
       const total = field === 'montoTotal'      ? val : (parseFloat(form.montoTotal)      || 0)
       const os    = field === 'montoObraSocial' ? val : (parseFloat(form.montoObraSocial) || 0)
-      setForm(p => ({
-        ...p,
-        [field]: value,
-        montoPaciente: Math.max(0, total - os),
-      }))
+      setForm(p => ({ ...p, [field]: value, montoPaciente: Math.max(0, total - os) }))
     } else {
       setField(field, value)
     }
@@ -97,7 +461,6 @@ function ModalFactura({ factura, onClose, onSave }) {
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Gestionar Facturación</h2>
@@ -111,12 +474,9 @@ function ModalFactura({ factura, onClose, onSave }) {
         </div>
 
         <div className="space-y-5">
-
           {/* Estado de cobertura */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Estado de cobertura
-            </label>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Estado de cobertura</label>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(ESTADO_COBERTURA).map(([key, val]) => {
                 const Icon = val.icon
@@ -140,9 +500,9 @@ function ModalFactura({ factura, onClose, onSave }) {
           {/* Montos */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Monto total',       field: 'montoTotal' },
-              { label: 'A cargo obra social', field: 'montoObraSocial' },
-              { label: 'A cargo paciente',  field: 'montoPaciente' },
+              { label: 'Monto total',          field: 'montoTotal' },
+              { label: 'A cargo obra social',   field: 'montoObraSocial' },
+              { label: 'A cargo paciente',      field: 'montoPaciente' },
             ].map(({ label, field }) => (
               <div key={field}>
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5">{label}</label>
@@ -170,9 +530,7 @@ function ModalFactura({ factura, onClose, onSave }) {
 
           {/* Estado de pago */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Estado de pago
-            </label>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Estado de pago</label>
             <div className="grid grid-cols-4 gap-2">
               {Object.entries(ESTADO_PAGO).map(([key, val]) => {
                 const sel = form.estadoPago === key
@@ -193,9 +551,7 @@ function ModalFactura({ factura, onClose, onSave }) {
 
           {/* Observaciones */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Observaciones
-            </label>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Observaciones</label>
             <textarea
               value={form.observaciones}
               onChange={e => setField('observaciones', e.target.value)}
@@ -231,39 +587,38 @@ function ModalFactura({ factura, onClose, onSave }) {
 
 // ── Componente principal ──────────────────────────────────────
 export function Facturacion() {
-  const [facturas, setFacturas]         = useState([])
-  const [loading, setLoading]           = useState(true)
-  const [search, setSearch]             = useState('')
+  const [facturas, setFacturas]               = useState([])
+  const [loading, setLoading]                 = useState(true)
+  const [search, setSearch]                   = useState('')
   const [filtroCobertura, setFiltroCobertura] = useState('all')
-  const [filtroPago, setFiltroPago]     = useState('all')
-  const [selected, setSelected]         = useState(null)
+  const [filtroPago, setFiltroPago]           = useState('all')
+  const [selected, setSelected]               = useState(null)
+  const [showCrear, setShowCrear]             = useState(false)
 
   const fetchFacturas = async () => {
     setLoading(true)
     try {
       const { data, error } = await supabase
-      .from('facturacion')
-      .select(`
-        id,
-        "guardiaId",
-        "pacienteId",
-        "estadoCobertura",
-        "montoTotal",
-        "montoObraSocial",
-        "montoPaciente",
-        "estadoPago",
-        observaciones,
-        "createdAt",
-        datosPaciente:paciente!facturacion_pacienteId_fkey ( nombre, apellido, dni )
-      `)
-      .order('"createdAt"', { ascending: false })
+        .from('facturacion')
+        .select(`
+          id,
+          "guardiaId",
+          "pacienteId",
+          "estadoCobertura",
+          "montoTotal",
+          "montoObraSocial",
+          "montoPaciente",
+          "estadoPago",
+          observaciones,
+          "createdAt",
+          datosPaciente:paciente!facturacion_pacienteId_fkey ( nombre, apellido, dni )
+        `)
+        .order('"createdAt"', { ascending: false })
 
-      console.log('Raw data:', data, 'Error:', error)
       if (error) throw error
       setFacturas(data || [])
     } catch (err) {
       console.error('Facturacion error:', err)
-      console.log('Data recibida:', data)
       setFacturas([])
     } finally {
       setLoading(false)
@@ -272,8 +627,8 @@ export function Facturacion() {
 
   useEffect(() => { fetchFacturas() }, [])
 
-  const handleSave = updated =>
-    setFacturas(prev => prev.map(f => f.id === updated.id ? updated : f))
+  const handleSave    = updated => setFacturas(prev => prev.map(f => f.id === updated.id ? updated : f))
+  const handleCreated = nueva  => setFacturas(prev => [nueva, ...prev])
 
   const filtered = facturas.filter(f => {
     const q = search.toLowerCase()
@@ -295,10 +650,8 @@ export function Facturacion() {
     .filter(f => f.estadoPago === 'pendiente' || f.estadoPago === 'deuda')
     .reduce((s, f) => s + (f.montoPaciente ?? 0), 0)
 
-  const totalObraSocial = facturas
-    .reduce((s, f) => s + (f.montoObraSocial ?? 0), 0)
-
-  const sinVerificar = facturas.filter(f => f.estadoCobertura === 'pendiente_verificacion').length
+  const totalObraSocial = facturas.reduce((s, f) => s + (f.montoObraSocial ?? 0), 0)
+  const sinVerificar    = facturas.filter(f => f.estadoCobertura === 'pendiente_verificacion').length
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -324,6 +677,13 @@ export function Facturacion() {
           </button>
           <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600">
             <Download className="h-4 w-4" /> Exportar
+          </button>
+          <button
+            onClick={() => setShowCrear(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#013FF6] text-white text-sm
+              font-semibold rounded-xl hover:bg-[#0033cc] shadow-lg shadow-[#013FF6]/20 transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Nueva Factura
           </button>
         </div>
       </div>
@@ -372,7 +732,6 @@ export function Facturacion() {
           />
         </div>
 
-        {/* Filtro cobertura */}
         <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => setFiltroCobertura('all')}
@@ -394,7 +753,6 @@ export function Facturacion() {
           ))}
         </div>
 
-        {/* Filtro pago */}
         <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => setFiltroPago('all')}
@@ -446,6 +804,12 @@ export function Facturacion() {
                     <td colSpan={7} className="px-5 py-12 text-center">
                       <Receipt className="h-8 w-8 mx-auto mb-2 text-slate-200" />
                       <p className="text-slate-400 font-medium text-sm">Sin facturas</p>
+                      <button
+                        onClick={() => setShowCrear(true)}
+                        className="mt-3 text-sm font-semibold text-[#013FF6] hover:underline"
+                      >
+                        Crear la primera →
+                      </button>
                     </td>
                   </tr>
                 )
@@ -459,15 +823,12 @@ export function Facturacion() {
                         className={`border-b border-slate-100/60 hover:bg-slate-50/50 transition-colors
                           ${i % 2 ? 'bg-slate-50/20' : ''}`}
                       >
-                        {/* Paciente */}
                         <td className="px-5 py-3.5">
                           <p className="font-semibold text-slate-900">
                             {f.datosPaciente?.nombre} {f.datosPaciente?.apellido}
                           </p>
                           <p className="text-xs text-slate-400">DNI {f.datosPaciente?.dni}</p>
                         </td>
-
-                        {/* Cobertura */}
                         <td className="px-5 py-3.5">
                           <span
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -477,23 +838,13 @@ export function Facturacion() {
                             {cob.label}
                           </span>
                         </td>
-
-                        {/* Monto total */}
-                        <td className="px-5 py-3.5 font-bold text-slate-900">
-                          {fmt(f.montoTotal)}
-                        </td>
-
-                        {/* Monto OS */}
+                        <td className="px-5 py-3.5 font-bold text-slate-900">{fmt(f.montoTotal)}</td>
                         <td className="px-5 py-3.5 text-slate-600">
                           {f.montoObraSocial > 0 ? fmt(f.montoObraSocial) : <span className="text-slate-300">—</span>}
                         </td>
-
-                        {/* Monto paciente */}
                         <td className="px-5 py-3.5 text-slate-600">
                           {f.montoPaciente > 0 ? fmt(f.montoPaciente) : <span className="text-slate-300">—</span>}
                         </td>
-
-                        {/* Estado pago */}
                         <td className="px-5 py-3.5">
                           <span
                             className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -502,8 +853,6 @@ export function Facturacion() {
                             {pago.label}
                           </span>
                         </td>
-
-                        {/* Acción */}
                         <td className="px-5 py-3.5">
                           <button
                             onClick={() => setSelected(f)}
@@ -529,7 +878,13 @@ export function Facturacion() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modales */}
+      {showCrear && (
+        <ModalCrearFactura
+          onClose={() => setShowCrear(false)}
+          onCreated={handleCreated}
+        />
+      )}
       {selected && (
         <ModalFactura
           factura={selected}

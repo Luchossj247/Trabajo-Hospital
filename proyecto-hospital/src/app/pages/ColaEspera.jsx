@@ -23,8 +23,9 @@ function fmtHora(isoStr) {
 const ESTADO_COLORS = {
   en_espera:   { label: 'En espera',   bg: '#fef3c7', color: '#92400e' },
   en_atencion: { label: 'En atención', bg: '#dbeafe', color: '#1e40af' },
-  atendido:    { label: 'Atendido',    bg: '#d1fae5', color: '#065f46' },
-  derivado:    { label: 'Derivado',    bg: '#ede9fe', color: '#5b21b6' },
+  internado:   { label: 'Internado',   bg: '#ede9fe', color: '#5b21b6' },
+  alta:        { label: 'Alta',        bg: '#d1fae5', color: '#065f46' },
+  derivado:    { label: 'Derivado',    bg: '#fce7f3', color: '#9d174d' },
 }
 
 function FilaPaciente({ item, numero }) {
@@ -48,7 +49,7 @@ function FilaPaciente({ item, numero }) {
         <p className="text-xs text-slate-400">DNI {item.paciente?.dni || '—'}</p>
       </div>
       <p className="hidden md:block text-xs text-slate-500 truncate max-w-[160px] flex-shrink-0">
-        {item.motivo || '—'}
+        {item.comentarioTriage || '—'}
       </p>
       <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
         {cobertura?.obraSocial ? (
@@ -80,12 +81,12 @@ function FilaPaciente({ item, numero }) {
 }
 
 export function ColaEspera() {
-  const [lista, setLista]   = useState([])
+  const [lista, setLista]     = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState(null)
-  const [search, setSearch] = useState('')
-  const [filtro, setFiltro] = useState('activos')
-  const tickRef = useRef(null)
+  const [error, setError]     = useState(null)
+  const [search, setSearch]   = useState('')
+  const [filtro, setFiltro]   = useState('activos')
+  const tickRef               = useRef(null)
 
   const fetchCola = useCallback(async () => {
     setError(null)
@@ -93,12 +94,12 @@ export function ColaEspera() {
       const { data: guardias, error: e1 } = await supabase
         .from('guardia')
         .select(`
-          id, estado, "ingresoAt", "medioIngreso",
+          id, estado, "ingresoAt", "medioIngreso", "comentarioTriage",
           paciente (
             id, nombre, apellido, dni
           )
         `)
-        .order('ingresoAt', { ascending: true })
+        .order('"ingresoAt"', { ascending: true })
 
       if (e1) throw e1
 
@@ -141,8 +142,9 @@ export function ColaEspera() {
     return () => clearInterval(tickRef.current)
   }, [fetchCola])
 
-  const activos  = lista.filter(p => ['en_espera', 'en_atencion'].includes(p.estado))
-  const cerrados = lista.filter(p => ['atendido', 'derivado'].includes(p.estado))
+  // Estados activos vs cerrados según el schema real
+  const activos  = lista.filter(p => ['en_espera', 'en_atencion', 'internado'].includes(p.estado))
+  const cerrados = lista.filter(p => ['alta', 'derivado'].includes(p.estado))
   const base     = filtro === 'activos' ? activos : cerrados
 
   const mostrar = base.filter(p => {
@@ -254,7 +256,7 @@ export function ColaEspera() {
           <div className="flex flex-col items-center justify-center py-16 text-slate-400">
             <Users className="h-10 w-10 mb-3 opacity-30" />
             <p className="font-semibold">
-              {filtro === 'activos' ? 'No hay pacientes en espera' : 'Sin atenciones cerradas hoy'}
+              {filtro === 'activos' ? 'No hay pacientes en espera' : 'Sin atenciones cerradas'}
             </p>
             {filtro === 'activos' && (
               <Link to="/empleado/registro" className="mt-3 text-sm font-semibold text-[#013FF6] hover:underline">

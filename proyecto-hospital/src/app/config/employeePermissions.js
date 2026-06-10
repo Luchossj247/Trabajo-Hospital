@@ -8,7 +8,7 @@ export const menuPermissions = {
     routes: [
       'dashboard', 'triaje', 'registro', 'camas', 'historial', 'historial-admin' ,
       'farmacia', 'cobertura', 'facturacion', 'perfil', 'ajustes',
-      'gestion-empleados', 'reportes', 'turnos', 'cola-espera',
+      'gestion-empleados', 'reportes', 'turnos', 'cola-espera', 'agenda-medica',
     ],
   },
 

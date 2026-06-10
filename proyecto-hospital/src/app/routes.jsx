@@ -18,6 +18,8 @@ import { VerificacionCobertura } from './pages/VerificacionCobertura.jsx'
 import { Facturacion } from './pages/Facturacion.jsx'
 import { ColaEspera } from './pages/ColaEspera.jsx'
 import { HistorialAdmin } from './pages/HistorialAdmin.jsx'
+import { Turnos }        from './pages/Turnos.jsx'
+import { GestionAgenda } from './pages/GestionAgenda.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -80,7 +82,9 @@ export const router = createBrowserRouter([
       // ── Admin-only ─────────────────────────────────────────
       protect('gestion-empleados', <GestionEmpleados />),
       protect('reportes',          <Placeholder title="Reportes" />),
-      protect('turnos',            <Placeholder title="Turnos" />),
+      protect('turnos', <Turnos />),
+      protect('agenda-medica', <GestionAgenda />),
+
 
       // ── Usuario ────────────────────────────────────────────
       protect('perfil',   <Placeholder title="Mi Perfil" />),

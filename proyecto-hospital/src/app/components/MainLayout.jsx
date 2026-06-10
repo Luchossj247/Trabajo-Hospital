@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity, LayoutDashboard, Settings, Bell, Search, LogOut,
   User, UserPlus, BedDouble, HeartPulse, FileText, Pill,
-  Shield, BarChart2, Calendar, Loader2, Clock, Receipt,
+  Shield, BarChart2, Calendar, Loader2, Clock, Receipt, CalendarDays,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { hasAccess } from '../config/employeePermissions.js'
@@ -23,6 +23,7 @@ const ALL_NAV_ITEMS = [
   { name: 'Gestión Personal',   href: '/empleado/gestion-empleados', icon: Shield,          route: 'gestion-empleados', section: 'admin' },
   { name: 'Turnos',             href: '/empleado/turnos',            icon: Calendar,        route: 'turnos',            section: 'admin' },
   { name: 'Reportes',           href: '/empleado/reportes',          icon: BarChart2,       route: 'reportes',          section: 'admin' },
+  { name: 'Agenda Médica',      href: '/empleado/agenda-medica',     icon: CalendarDays,    route: 'agenda-medica',     section: 'admin' }
 ]
 
 const ROL_LABELS = {
