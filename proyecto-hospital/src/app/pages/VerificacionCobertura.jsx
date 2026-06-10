@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import {
   CreditCard, Search, CheckCircle2, XCircle, AlertTriangle,
-  RefreshCw, ChevronRight, User, Building2, FileText, Save,
-  Loader2, Edit2, X,
+  RefreshCw, Edit2, X, Save, Loader2, User, Building2,
+  FileText,
 } from 'lucide-react'
 
 // ── Estado de cobertura ───────────────────────────────────────
 const ESTADO_LABELS = {
-  cubre:     { label: 'Cubre',        color: '#ACEC00', textColor: '#1a1a1a', icon: CheckCircle2 },
-  no_cubre:  { label: 'No cubre',     color: '#ef4444', textColor: '#fff',    icon: XCircle },
+  cubre:     { label: 'Cubre',         color: '#ACEC00', textColor: '#1a1a1a', icon: CheckCircle2 },
+  no_cubre:  { label: 'No cubre',      color: '#ef4444', textColor: '#fff',    icon: XCircle      },
   pendiente: { label: 'Por verificar', color: '#f59e0b', textColor: '#fff',    icon: AlertTriangle },
 }
 
@@ -18,64 +18,87 @@ const OBRAS_SOCIALES = [
   'Medifé', 'Sancor Salud', 'OSPEDYC', 'Accord Salud', 'Particular',
 ]
 
-// ── Demo fallback ─────────────────────────────────────────────
-const DEMO_COBERTURAS = [
-  {
-    id: 1, pacienteId: 101,
-    paciente: { nombre: 'Carlos', apellido: 'Méndez', dni: '28.453.123' },
-    obraSocial: 'OSDE', plan: '210', numeroAfiliado: 'OSS-4482110',
-    estadoCobertura: 'pendiente', activa: true,
-    observaciones: '',
-  },
-  {
-    id: 2, pacienteId: 102,
-    paciente: { nombre: 'Ana', apellido: 'Silva', dni: '33.120.456' },
-    obraSocial: 'Swiss Medical', plan: 'SMG20', numeroAfiliado: 'SM-9920341',
-    estadoCobertura: 'cubre', activa: true,
-    observaciones: 'Verificado telefónicamente',
-  },
-  {
-    id: 3, pacienteId: 103,
-    paciente: { nombre: 'Pedro', apellido: 'Gómez', dni: '40.987.654' },
-    obraSocial: 'PAMI', plan: 'Base', numeroAfiliado: 'P-00123456',
-    estadoCobertura: 'no_cubre', activa: false,
-    observaciones: 'Credencial vencida. Paga el paciente.',
-  },
-  {
-    id: 4, pacienteId: 104,
-    paciente: { nombre: 'María', apellido: 'López', dni: '25.654.321' },
-    obraSocial: 'Particular', plan: null, numeroAfiliado: null,
-    estadoCobertura: 'no_cubre', activa: false,
-    observaciones: 'Sin cobertura. Abona en efectivo.',
-  },
-  {
-    id: 5, pacienteId: 105,
-    paciente: { nombre: 'Juan', apellido: 'Fernández', dni: '37.223.789' },
-    obraSocial: 'IOMA', plan: 'A', numeroAfiliado: 'IOMA-77821',
-    estadoCobertura: 'pendiente', activa: true,
-    observaciones: '',
-  },
-]
+// ── Tooltip de observaciones ──────────────────────────────────
+function ObsTooltip({ text }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
 
-// ── Modal de edición de cobertura ─────────────────────────────
+  useEffect(() => {
+    if (!open) return
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  if (!text) {
+    return (
+      <div className="w-8 h-8 flex items-center justify-center opacity-20 pointer-events-none">
+        <FileText className="h-4 w-4 text-slate-400" />
+      </div>
+    )
+  }
+
+  return (
+    <div ref={ref} className="relative flex items-center justify-center">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors
+          ${open
+            ? 'bg-[#013FF6]/10 border-[#013FF6] text-[#013FF6]'
+            : 'border-slate-200 text-[#013FF6] hover:bg-[#013FF6]/5 hover:border-[#013FF6]'
+          }`}
+        title="Ver observaciones"
+      >
+        <FileText className="h-4 w-4" />
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full right-0 mb-2 z-20 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-3">
+          <p className="text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Observaciones</p>
+          <p className="text-sm text-slate-700 leading-relaxed">{text}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Modal de edición ──────────────────────────────────────────
 function ModalCobertura({ cobertura, onClose, onSave }) {
   const [form, setForm] = useState({
-    estadoCobertura: cobertura.estadoCobertura,
-    obraSocial:      cobertura.obraSocial || '',
-    plan:            cobertura.plan || '',
-    numeroAfiliado:  cobertura.numeroAfiliado || '',
-    observaciones:   cobertura.observaciones || '',
+    estadoCobertura: cobertura.estadoCobertura || 'cubre',
+    obraSocial:      cobertura.obraSocial      || '',
+    numeroAfiliado:  cobertura.numeroAfiliado  || '',
+    observaciones:   cobertura.observaciones   || '',
   })
   const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState(null)
 
   const setField = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const handleSave = async () => {
     setSaving(true)
-    await new Promise(r => setTimeout(r, 600))
-    onSave({ ...cobertura, ...form })
-    setSaving(false)
-    onClose()
+    setError(null)
+    try {
+      const { data, error } = await supabase
+        .from('coberturaMedica')
+        .update({
+          estadoCobertura: form.estadoCobertura,
+          obraSocial:      form.obraSocial || null,
+          numeroAfiliado:  form.numeroAfiliado || null,
+          observaciones:   form.observaciones  || null,
+        })
+        .eq('id', cobertura.id)
+        .select('*, paciente(nombre, apellido, dni)')
+        .single()
+
+      if (error) throw error
+      onSave(data)
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -89,9 +112,7 @@ function ModalCobertura({ cobertura, onClose, onSave }) {
       >
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              Verificar Cobertura
-            </h2>
+            <h2 className="text-lg font-bold text-slate-900">Verificar Cobertura</h2>
             <p className="text-sm text-slate-400 mt-0.5">
               {cobertura.paciente.nombre} {cobertura.paciente.apellido} — DNI {cobertura.paciente.dni}
             </p>
@@ -104,9 +125,7 @@ function ModalCobertura({ cobertura, onClose, onSave }) {
         <div className="space-y-4">
           {/* Estado */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Estado de cobertura
-            </label>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Estado de cobertura</label>
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(ESTADO_LABELS).map(([key, val]) => {
                 const Icon = val.icon
@@ -127,7 +146,6 @@ function ModalCobertura({ cobertura, onClose, onSave }) {
             </div>
           </div>
 
-          {/* Obra social */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Obra Social</label>
@@ -139,15 +157,6 @@ function ModalCobertura({ cobertura, onClose, onSave }) {
                 <option value="">Particular</option>
                 {OBRAS_SOCIALES.map(os => <option key={os} value={os}>{os}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Plan</label>
-              <input
-                value={form.plan}
-                onChange={e => setField('plan', e.target.value)}
-                placeholder="Ej: 210"
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
-              />
             </div>
           </div>
 
@@ -166,11 +175,15 @@ function ModalCobertura({ cobertura, onClose, onSave }) {
             <textarea
               value={form.observaciones}
               onChange={e => setField('observaciones', e.target.value)}
-              placeholder="Ej: Verificado con la OS. Cubre 80% de la consulta..."
+              placeholder="Ej: Verificado con la OS. Cubre 80%..."
               rows={3}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40 resize-none"
             />
           </div>
+
+          {error && (
+            <p className="text-xs text-red-500 font-medium">{error}</p>
+          )}
         </div>
 
         <div className="flex gap-3 mt-6">
@@ -196,33 +209,32 @@ function ModalCobertura({ cobertura, onClose, onSave }) {
 
 // ── Componente principal ──────────────────────────────────────
 export function VerificacionCobertura() {
-  const [coberturas, setCoberturas] = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [search, setSearch]         = useState('')
+  const [coberturas, setCoberturas]     = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [error, setError]               = useState(null)
+  const [search, setSearch]             = useState('')
   const [filtroEstado, setFiltroEstado] = useState('all')
-  const [selected, setSelected]     = useState(null)
+  const [selected, setSelected]         = useState(null)
 
-  useEffect(() => {
-    const fetchCoberturas = async () => {
-      setLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from('coberturaMedica')
-          .select(`*, paciente ( nombre, apellido, dni )`)
-          .order('createdAt', { ascending: false })
+  const fetchCoberturas = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data, error } = await supabase
+        .from('coberturaMedica')
+        .select('*, paciente(nombre, apellido, dni)')
+        .order('createdAt', { ascending: false })
 
-        if (error) throw error
-        setCoberturas(data || [])
-      } catch {
-        // Fallback demo
-        await new Promise(r => setTimeout(r, 500))
-        setCoberturas(DEMO_COBERTURAS)
-      } finally {
-        setLoading(false)
-      }
+      if (error) throw error
+      setCoberturas(data || [])
+    } catch (err) {
+      setError(err.message || 'Error al cargar coberturas')
+    } finally {
+      setLoading(false)
     }
-    fetchCoberturas()
   }, [])
+
+  useEffect(() => { fetchCoberturas() }, [fetchCoberturas])
 
   const handleSave = (updated) => {
     setCoberturas(prev => prev.map(c => c.id === updated.id ? updated : c))
@@ -255,23 +267,37 @@ export function VerificacionCobertura() {
             Confirmá si la obra social cubre la atención o si abona el paciente
           </p>
         </div>
+        <button
+          onClick={fetchCoberturas}
+          disabled={loading}
+          className="p-2.5 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-colors"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium">
+          {error}
+        </div>
+      )}
 
       {/* KPI Pills */}
       <div className="flex flex-wrap gap-3">
         {[
-          { key: 'all',      label: 'Todos',         count: coberturas.length, bg: 'bg-slate-100',        text: 'text-slate-700' },
-          { key: 'pendiente',label: 'Por verificar', count: counts.pendiente,  bg: 'bg-amber-100',        text: 'text-amber-800' },
-          { key: 'cubre',    label: 'Cubre',         count: counts.cubre,      bg: 'bg-[#ACEC00]/20',     text: 'text-slate-800' },
-          { key: 'no_cubre', label: 'No cubre',      count: counts.no_cubre,   bg: 'bg-red-100',          text: 'text-red-700'   },
+          { key: 'all',       label: 'Todos',          count: coberturas.length, bg: 'bg-slate-100',    text: 'text-slate-700' },
+          { key: 'pendiente', label: 'Por verificar',  count: counts.pendiente,  bg: 'bg-amber-100',    text: 'text-amber-800' },
+          { key: 'cubre',     label: 'Cubre',          count: counts.cubre,      bg: 'bg-[#ACEC00]/20', text: 'text-slate-800' },
+          { key: 'no_cubre',  label: 'No cubre',       count: counts.no_cubre,   bg: 'bg-red-100',      text: 'text-red-700'   },
         ].map(f => (
           <button
             key={f.key}
             onClick={() => setFiltroEstado(f.key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all
               ${filtroEstado === f.key
-                ? 'ring-2 ring-[#013FF6] ring-offset-1 ' + f.bg + ' ' + f.text
-                : f.bg + ' ' + f.text + ' opacity-60 hover:opacity-100'}`}
+                ? `ring-2 ring-[#013FF6] ring-offset-1 ${f.bg} ${f.text}`
+                : `${f.bg} ${f.text} opacity-60 hover:opacity-100`}`}
           >
             {f.label}
             <span className="bg-white/60 rounded-full px-1.5 py-0.5 text-xs font-bold">{f.count}</span>
@@ -290,6 +316,18 @@ export function VerificacionCobertura() {
         />
       </div>
 
+      {/* Encabezado de columnas */}
+      {!loading && filtered.length > 0 && (
+        <div className="flex items-center gap-4 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+          <div className="w-11 flex-shrink-0" />
+          <div className="flex-1">Paciente</div>
+          <div className="w-44 flex-shrink-0">Obra social</div>
+          <div className="w-36 flex-shrink-0">Estado</div>
+          <div className="w-8 flex-shrink-0" />
+          <div className="w-24 flex-shrink-0" />
+        </div>
+      )}
+
       {/* Lista */}
       <div className="space-y-2">
         {loading
@@ -300,7 +338,7 @@ export function VerificacionCobertura() {
           ? (
             <div className="text-center py-16 text-slate-400">
               <CreditCard className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="font-medium">Sin resultados</p>
+              <p className="font-medium">{error ? 'Error al cargar' : 'Sin resultados'}</p>
             </div>
           )
           : filtered.map(c => {
@@ -316,7 +354,7 @@ export function VerificacionCobertura() {
                     <User className="h-5 w-5 text-[#013FF6]" />
                   </div>
 
-                  {/* Info paciente */}
+                  {/* Paciente */}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-900 truncate">
                       {c.paciente?.nombre} {c.paciente?.apellido}
@@ -324,37 +362,32 @@ export function VerificacionCobertura() {
                     <p className="text-xs text-slate-400">DNI {c.paciente?.dni}</p>
                   </div>
 
-                  {/* Obra social */}
-                  <div className="hidden sm:flex flex-col min-w-0 w-36">
-                    <p className="text-sm font-semibold text-slate-700 truncate flex items-center gap-1">
-                      <Building2 className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-                      {c.obraSocial || 'Particular'}
-                    </p>
-                    {c.plan && (
-                      <p className="text-xs text-slate-400 truncate">Plan {c.plan}</p>
-                    )}
+                  {/* Obra social — ancho fijo para alinear */}
+                  <div className="hidden sm:flex items-center gap-1.5 w-44 flex-shrink-0 text-sm text-slate-600 truncate">
+                    <Building2 className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span className="truncate">{c.obraSocial || 'Particular'}</span>
                   </div>
 
-                  {/* Estado badge */}
-                  <div
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0"
-                    style={{ backgroundColor: estado.color, color: estado.textColor }}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {estado.label}
+                  {/* Estado — ancho fijo para alinear */}
+                  <div className="w-36 flex-shrink-0">
+                    <div
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+                      style={{ backgroundColor: estado.color, color: estado.textColor }}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {estado.label}
+                    </div>
                   </div>
 
-                  {/* Observación */}
-                  {c.observaciones && (
-                    <p className="text-xs text-slate-400 hidden lg:block max-w-[180px] truncate">
-                      {c.observaciones}
-                    </p>
-                  )}
+                  {/* Observaciones — ícono con popover */}
+                  <div className="w-8 flex-shrink-0 flex justify-center">
+                    <ObsTooltip text={c.observaciones} />
+                  </div>
 
                   {/* Acción */}
                   <button
                     onClick={() => setSelected(c)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-[#013FF6] hover:text-[#013FF6] transition-colors flex-shrink-0"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-[#013FF6] hover:text-[#013FF6] transition-colors flex-shrink-0 w-24 justify-center"
                   >
                     <Edit2 className="h-3.5 w-3.5" />
                     Verificar
@@ -365,7 +398,6 @@ export function VerificacionCobertura() {
         }
       </div>
 
-      {/* Modal */}
       {selected && (
         <ModalCobertura
           cobertura={selected}

@@ -6,60 +6,6 @@ import {
   CreditCard, Loader2, Eye,
 } from 'lucide-react'
 
-// ── Demo data ─────────────────────────────────────────────────
-const DEMO_PACIENTES = [
-  {
-    id: 101,
-    nombre: 'Carlos', apellido: 'Méndez', dni: '28.453.123',
-    fechaNacimiento: '1985-03-12', sexo: 'M',
-    telefono: '11 4523-8821', email: 'carlos.mendez@email.com',
-    grupoSanguineo: 'A+', alergias: 'Penicilina',
-    coberturaMedica: { obraSocial: 'OSDE', plan: '210', numeroAfiliado: 'OSS-4482110', estadoCobertura: 'cubre' },
-    historial: {
-      observacionesGenerales: 'Paciente con hipertensión arterial en tratamiento.',
-      documentos: [
-        { id: 1, tipo: 'Laboratorio',  titulo: 'Hemograma completo', fecha: '2025-11-15', subidoPor: 'Dr. Ramírez' },
-        { id: 2, tipo: 'Diagnóstico',  titulo: 'Eco abdominal',      fecha: '2025-09-03', subidoPor: 'Dra. Varela' },
-      ],
-      atenciones: [
-        { id: 1, fecha: '2025-11-20', motivo: 'Control HTA',        medico: 'Dr. Ramírez',  estado: 'Alta' },
-        { id: 2, fecha: '2025-09-01', motivo: 'Dolor abdominal',    medico: 'Dra. Varela',  estado: 'Alta' },
-      ],
-    },
-  },
-  {
-    id: 102,
-    nombre: 'Ana', apellido: 'Silva', dni: '33.120.456',
-    fechaNacimiento: '1992-07-28', sexo: 'F',
-    telefono: '11 5678-1234', email: 'ana.silva@email.com',
-    grupoSanguineo: 'O+', alergias: null,
-    coberturaMedica: { obraSocial: 'Swiss Medical', plan: 'SMG20', numeroAfiliado: 'SM-9920341', estadoCobertura: 'cubre' },
-    historial: {
-      observacionesGenerales: '',
-      documentos: [
-        { id: 3, tipo: 'Laboratorio', titulo: 'Análisis de orina', fecha: '2025-10-01', subidoPor: 'Dr. López' },
-      ],
-      atenciones: [
-        { id: 3, fecha: '2025-10-05', motivo: 'Infección urinaria', medico: 'Dr. López', estado: 'Alta' },
-      ],
-    },
-  },
-  {
-    id: 103,
-    nombre: 'Pedro', apellido: 'Gómez', dni: '40.987.654',
-    fechaNacimiento: '2001-12-05', sexo: 'M',
-    telefono: '11 9988-4421', email: null,
-    grupoSanguineo: 'B-', alergias: 'Yodo',
-    coberturaMedica: { obraSocial: 'PAMI', plan: 'Base', numeroAfiliado: 'P-00123456', estadoCobertura: 'no_cubre' },
-    historial: {
-      observacionesGenerales: 'Alérgico al yodo. Tener en cuenta para estudios con contraste.',
-      documentos: [],
-      atenciones: [
-        { id: 4, fecha: '2025-12-10', motivo: 'Dolor en el pecho', medico: 'Dra. Torres', estado: 'Internado' },
-      ],
-    },
-  },
-]
 
 // ── Calcular edad ─────────────────────────────────────────────
 function calcEdad(fechaNacimiento) {
@@ -74,14 +20,30 @@ function calcEdad(fechaNacimiento) {
 
 // ── Panel de historial expandido ──────────────────────────────
 function HistorialPanel({ paciente }) {
-  const h = paciente.historial
-  const c = paciente.coberturaMedica
+  const h = paciente.historialClinico?.[0] || {}
+  const c = paciente.coberturaMedica?.[0] || null
 
   const estadoCob = {
-    cubre:    { label: 'Cubre',        color: '#ACEC00', text: '#1a1a1a' },
-    no_cubre: { label: 'No cubre',     color: '#ef4444', text: '#fff'    },
-    pendiente:{ label: 'Por verificar',color: '#f59e0b', text: '#fff'    },
-  }[c?.estadoCobertura || 'pendiente']
+    'Cubre': {
+      label: 'Cubre',
+      color: '#ACEC00',
+      text: '#1a1a1a'
+    },
+    'No cubre': {
+      label: 'No cubre',
+      color: '#ef4444',
+      text: '#fff'
+    },
+    'Pendiente': {
+      label: 'Por verificar',
+      color: '#f59e0b',
+      text: '#fff'
+    }
+  }[c?.estadoCobertura] ?? {
+    label: 'Sin verificar',
+    color: '#94a3b8',
+    text: '#fff'
+  }
 
   return (
     <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4 space-y-5">
@@ -134,12 +96,6 @@ function HistorialPanel({ paciente }) {
                 <span className="text-slate-500">Obra Social</span>
                 <span className="font-semibold text-slate-900">{c.obraSocial || 'Particular'}</span>
               </div>
-              {c.plan && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Plan</span>
-                  <span className="font-semibold text-slate-900">{c.plan}</span>
-                </div>
-              )}
               {c.numeroAfiliado && (
                 <div className="flex justify-between">
                   <span className="text-slate-500">Nº Afiliado</span>
@@ -197,20 +153,28 @@ function HistorialPanel({ paciente }) {
       )}
 
       {/* Documentos */}
-      {h.documentos?.length > 0 && (
+      {h.documentoClinico?.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-100 p-4">
           <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
             <FileText className="h-3.5 w-3.5" /> Documentos clínicos
           </h4>
           <div className="space-y-2">
-            {h.documentos.map(d => (
+            {h.documentoClinico.map(d => (
               <div key={d.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
                 <div className="w-8 h-8 bg-[#013FF6]/10 rounded-lg flex items-center justify-center flex-shrink-0">
                   <FileText className="h-4 w-4 text-[#013FF6]" />
                 </div>
+
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{d.titulo}</p>
-                  <p className="text-xs text-slate-400">{d.tipo} · {new Date(d.fecha).toLocaleDateString('es-AR')} · {d.subidoPor}</p>
+                  <p className="text-sm font-semibold text-slate-900 truncate">
+                    {d.descripcion || 'Documento clínico'}
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    {d.subidoAt
+                      ? new Date(d.subidoAt).toLocaleDateString('es-AR')
+                      : 'Fecha no disponible'}
+                  </p>
                 </div>
               </div>
             ))}
@@ -236,7 +200,7 @@ export function HistorialAdmin() {
           .from('paciente')
           .select(`
             id, nombre, apellido, dni, fechaNacimiento, sexo, telefono, email, grupoSanguineo, alergias,
-            coberturaMedica ( obraSocial, plan, numeroAfiliado, estadoCobertura ),
+            coberturaMedica ( obraSocial, numeroAfiliado, estadoCobertura ),
             historialClinico ( observacionesGenerales, documentoClinico (*) )
           `)
           .order('apellido')
@@ -301,7 +265,7 @@ export function HistorialAdmin() {
           )
           : filtered.map(p => {
               const isOpen = expanded === p.id
-              const c = p.coberturaMedica
+              const c = p.coberturaMedica?.[0]
               return (
                 <div key={p.id} className="border-b border-slate-100 last:border-0">
                   <button

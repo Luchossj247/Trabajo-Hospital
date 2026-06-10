@@ -71,7 +71,7 @@ export function ReceptionistDashboard() {
           .from('paciente')
           .select(`
             id, nombre, apellido, dni, createdAt,
-            coberturaMedica ( obraSocial, plan, activa )
+            coberturaMedica ( obraSocial, activa )
           `)
           .gte('createdAt', todayStart.toISOString())
           .order('createdAt', { ascending: true }),
@@ -336,12 +336,3 @@ export function ReceptionistDashboard() {
     </div>
   )
 }
-
-// ── Demo fallback ─────────────────────────────────────────────
-const DEMO_PATIENTS = [
-  { id: 1, nombre: 'Carlos',  apellido: 'Méndez',   dni: '28453123', createdAt: new Date(Date.now() - 95 * 60000).toISOString(), coberturaMedica: [{ obraSocial: 'OSDE', plan: '210', activa: true }] },
-  { id: 2, nombre: 'Ana',     apellido: 'Silva',    dni: '33120456', createdAt: new Date(Date.now() - 72 * 60000).toISOString(), coberturaMedica: [] },
-  { id: 3, nombre: 'Pedro',   apellido: 'Gómez',    dni: '40987654', createdAt: new Date(Date.now() - 45 * 60000).toISOString(), coberturaMedica: [{ obraSocial: 'PAMI', plan: null, activa: true }] },
-  { id: 4, nombre: 'María',   apellido: 'López',    dni: '25654321', createdAt: new Date(Date.now() - 30 * 60000).toISOString(), coberturaMedica: [{ obraSocial: 'Swiss Medical', plan: 'Classic', activa: true }] },
-  { id: 5, nombre: 'Juan',    apellido: 'Fernández',dni: '37223789', createdAt: new Date(Date.now() - 12 * 60000).toISOString(), coberturaMedica: [] },
-]

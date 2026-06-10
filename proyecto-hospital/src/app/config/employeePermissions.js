@@ -8,7 +8,7 @@ export const menuPermissions = {
     routes: [
       'dashboard', 'triaje', 'registro', 'camas', 'historial', 'historial-admin' ,
       'farmacia', 'cobertura', 'facturacion', 'perfil', 'ajustes',
-      'gestion-empleados', 'reportes', 'turnos',
+      'gestion-empleados', 'reportes', 'turnos', 'cola-espera',
     ],
   },
 
@@ -44,7 +44,7 @@ export const menuPermissions = {
     fullAccess: false,
     routes: [
       'dashboard', 'registro', 'cobertura', 'facturacion', 'historial-admin', 'turnos',
-      'perfil', 'ajustes',
+      'perfil', 'ajustes', 'cola-espera',
     ],
   },
 }

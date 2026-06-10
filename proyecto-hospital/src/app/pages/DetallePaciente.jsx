@@ -59,8 +59,9 @@ export function DetallePaciente() {
         const cob = data.coberturaMedica?.[0]
         setFormCobertura({
           obraSocial:     cob?.obraSocial     || '',
+          plan:           cob?.plan           || '',
           numeroAfiliado: cob?.numeroAfiliado || '',
-          cubre_atencion: cob?.cubre_atencion ?? true,
+          activa:         cob?.activa ?? true,  // ← era cubre_atencion
         })
       } catch (err) {
         console.error(err)
@@ -335,6 +336,16 @@ export function DetallePaciente() {
                     </select>
                   </div>
                   <div>
+                    <label className="text-xs font-semibold text-slate-500 mb-1 block">Plan</label>
+                    <input
+                      value={formCobertura.plan || ''}
+                      onChange={e => setFormCobertura(p => ({ ...p, plan: e.target.value }))}
+                      placeholder="Ej: 210"
+                      disabled={!formCobertura.obraSocial}
+                      className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                    />
+                  </div>
+                  <div>
                     <label className="text-xs font-semibold text-slate-500 mb-1 block">Nº Afiliado</label>
                     <input
                       value={formCobertura.numeroAfiliado || ''}
@@ -343,16 +354,16 @@ export function DetallePaciente() {
                       disabled={!formCobertura.obraSocial}
                     />
                   </div>
-                  {/* Toggle cubre */}
+                  {/* Toggle activa — era cubre_atencion */}
                   <div
                     className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer"
-                    onClick={() => setFormCobertura(p => ({ ...p, cubre_atencion: !p.cubre_atencion }))}
+                    onClick={() => setFormCobertura(p => ({ ...p, activa: !p.activa }))}
                   >
                     <p className="text-sm font-semibold text-slate-700">¿Cubre la atención?</p>
                     <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                      ${formCobertura.cubre_atencion ? 'bg-[#013FF6]' : 'bg-slate-200'}`}>
+                      ${formCobertura.activa ? 'bg-[#013FF6]' : 'bg-slate-200'}`}>
                       <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform
-                        ${formCobertura.cubre_atencion ? 'translate-x-6' : 'translate-x-1'}`} />
+                        ${formCobertura.activa ? 'translate-x-6' : 'translate-x-1'}`} />
                     </div>
                   </div>
                 </>
@@ -362,20 +373,27 @@ export function DetallePaciente() {
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Obra Social</p>
                     <p className="text-sm font-medium text-slate-800 mt-0.5">{cobertura?.obraSocial || 'Particular'}</p>
                   </div>
+                  {cobertura?.plan && (
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Plan</p>
+                      <p className="text-sm font-medium text-slate-800 mt-0.5">{cobertura.plan}</p>
+                    </div>
+                  )}
                   {cobertura?.numeroAfiliado && (
                     <div>
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Nº Afiliado</p>
                       <p className="text-sm font-medium text-slate-800 mt-0.5">{cobertura.numeroAfiliado}</p>
                     </div>
                   )}
+                  {/* activa — era cubre_atencion */}
                   <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold
-                    ${cobertura?.cubre_atencion !== false
+                    ${cobertura?.activa !== false
                       ? 'bg-emerald-50 text-emerald-700'
                       : 'bg-red-50 text-red-600'}`}>
-                    {cobertura?.cubre_atencion !== false
+                    {cobertura?.activa !== false
                       ? <CheckCircle2 className="h-4 w-4" />
                       : <XCircle className="h-4 w-4" />}
-                    {cobertura?.cubre_atencion !== false ? 'Cubre la atención' : 'No cubre'}
+                    {cobertura?.activa !== false ? 'Cubre la atención' : 'No cubre'}
                   </div>
                 </>
               )}

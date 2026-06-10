@@ -13,7 +13,6 @@ import { ReceptionistDashboard } from './pages/dashboards/ReceptionistDashboard.
 import { RegistroPaciente } from './pages/RegistroPaciente.jsx'
 import { GestionEmpleados } from './pages/GestionEmpleados.jsx'
 import { VerificacionCobertura } from './pages/VerificacionCobertura.jsx'
-import { HistorialAdmin }        from './pages/HistorialAdmin.jsx'
 import { Facturacion } from './pages/Facturacion.jsx'
 import { ColaEspera } from './pages/ColaEspera.jsx'
 import { HistorialAdmin } from './pages/HistorialAdmin.jsx'
