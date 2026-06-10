@@ -10,6 +10,8 @@ import { DashboardAdmin } from './pages/dashboards/DashboardAdmin.jsx'
 import { ReceptionistDashboard } from './pages/dashboards/ReceptionistDashboard.jsx'
 
 // Pages
+import { ListadoPacientes } from './pages/ListadoPaciente.jsx'
+import { DetallePaciente } from './pages/DetallePaciente.jsx'
 import { RegistroPaciente } from './pages/RegistroPaciente.jsx'
 import { GestionEmpleados } from './pages/GestionEmpleados.jsx'
 import { VerificacionCobertura } from './pages/VerificacionCobertura.jsx'
@@ -36,9 +38,15 @@ function EmployeeDashboard() {
   }
 }
 
-const protect = (route, element) => ({
+// Todas las subrutas de registro usan 'registro' como requiredRoute
+// para que hasAccess evalúe el mismo permiso en las tres variantes
+const protect = (route, element, requiredRoute) => ({
   path: route,
-  element: <ProtectedRoute requiredRoute={route}>{element}</ProtectedRoute>,
+  element: (
+    <ProtectedRoute requiredRoute={requiredRoute ?? route}>
+      {element}
+    </ProtectedRoute>
+  ),
 })
 
 export const router = createBrowserRouter([
@@ -49,27 +57,34 @@ export const router = createBrowserRouter([
     Component: MainLayout,
     children: [
       { index: true, Component: EmployeeDashboard },
-      protect('registro',              <RegistroPaciente />),
-      protect('triaje',                <Placeholder title="Triaje y Urgencias" />),
-      protect('historial',             <Placeholder title="Historial Clínico — Médico" />),
-      protect('farmacia',              <Placeholder title="Farmacia" />),
-      protect('perfil',                <Placeholder title="Mi Perfil" />),
-      protect('ajustes',               <Placeholder title="Configuración" />),
-      // ── Clínico ────────────────────────────────────────────
-      protect('triaje',                <ColaEspera />),
-      protect('camas',                 <Placeholder title="Control de Camas" />),
-      protect('historial',             <HistorialAdmin />),
-      protect('farmacia',              <Placeholder title="Farmacia" />),
 
-      // ── Admin ──────────────────────────────────────────────
-      protect('cobertura',             <VerificacionCobertura />),
-      protect('facturacion',           <Facturacion />),
-      protect('cola-espera',           <ColaEspera />),
-      protect('historial-admin',       <HistorialAdmin />),
-      // Admin-only
-      protect('gestion-empleados',     <GestionEmpleados />),
-      protect('reportes',              <Placeholder title="Reportes" />),
-      protect('turnos',                <Placeholder title="Turnos" />),
+      // ── Registro de pacientes ──────────────────────────────
+      // Las tres rutas usan requiredRoute='registro' para que
+      // hasAccess verifique el mismo permiso
+      protect('registro',        <ListadoPacientes />,  'registro'),
+      protect('registro/nuevo',  <RegistroPaciente />,  'registro'),
+      protect('registro/:id',    <DetallePaciente />,   'registro'),
+
+      // ── Módulos clínicos ───────────────────────────────────
+      protect('triaje',          <Placeholder title="Triaje y Urgencias" />),
+      protect('camas',           <Placeholder title="Control de Camas" />),
+      protect('historial',       <Placeholder title="Historial Clínico — Médico" />),
+      protect('farmacia',        <Placeholder title="Farmacia" />),
+
+      // ── Recepción / Admin ──────────────────────────────────
+      protect('cola-espera',     <ColaEspera />),
+      protect('cobertura',       <VerificacionCobertura />),
+      protect('facturacion',     <Facturacion />),
+      protect('historial-admin', <HistorialAdmin />),
+
+      // ── Admin-only ─────────────────────────────────────────
+      protect('gestion-empleados', <GestionEmpleados />),
+      protect('reportes',          <Placeholder title="Reportes" />),
+      protect('turnos',            <Placeholder title="Turnos" />),
+
+      // ── Usuario ────────────────────────────────────────────
+      protect('perfil',   <Placeholder title="Mi Perfil" />),
+      protect('ajustes',  <Placeholder title="Configuración" />),
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

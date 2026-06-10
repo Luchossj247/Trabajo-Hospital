@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { hasAccess } from '../config/employeePermissions.js'
 import { Loader2 } from 'lucide-react'
+import { Outlet } from 'react-router-dom'
 
 export function ProtectedRoute({ children, requiredRoute }) {
   const navigate              = useNavigate()
@@ -39,6 +40,5 @@ export function ProtectedRoute({ children, requiredRoute }) {
   if (!session || !perfil || !hasAccess(perfil.rol, requiredRoute)) {
     return null
   }
-
-  return <>{children}</>
+  return <>{children ?? <Outlet />}</>
 }

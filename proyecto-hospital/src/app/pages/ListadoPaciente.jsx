@@ -175,7 +175,7 @@ export function ListadoPacientes() {
                       <td className="px-5 py-3.5">
                         {cobertura?.obraSocial ? (
                           <div className="flex items-center gap-1.5">
-                            {cobertura.cubre_atencion
+                            {['cubre_total','cubre_parcial'].includes(cobertura.estadoCobertura)
                               ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
                               : <XCircle className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
                             }

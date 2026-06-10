@@ -17,6 +17,18 @@ function calcularEdad(fechaNacimiento) {
   return `${edad} años`
 }
 
+// Mapeo de estadoCobertura → visual (consistente con VerificacionCobertura)
+const ESTADO_COB = {
+  pendiente:  { label: 'Por verificar', bg: 'bg-amber-50',   text: 'text-amber-700',  Icon: AlertTriangle },
+  cubre:      { label: 'Cubre',         bg: 'bg-emerald-50', text: 'text-emerald-700', Icon: CheckCircle2  },
+  no_cubre:   { label: 'No cubre',      bg: 'bg-red-50',     text: 'text-red-600',     Icon: XCircle       },
+}
+
+// activa se deriva del estadoCobertura para mantener consistencia en la BD
+function activaDesdeEstado(estado) {
+  return estado === 'cubre'
+}
+
 const inputClass = 'flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#013FF6] focus-visible:ring-offset-1'
 const selectClass = 'flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#013FF6] focus-visible:ring-offset-1'
 
@@ -24,14 +36,14 @@ export function DetallePaciente() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const [paciente, setPaciente]         = useState(null)
-  const [loading, setLoading]           = useState(true)
-  const [editando, setEditando]         = useState(false)
+  const [paciente, setPaciente]           = useState(null)
+  const [loading, setLoading]             = useState(true)
+  const [editando, setEditando]           = useState(false)
   const [editandoCobertura, setEditandoCobertura] = useState(false)
-  const [saving, setSaving]             = useState(false)
-  const [toast, setToast]               = useState(null)
+  const [saving, setSaving]               = useState(false)
+  const [toast, setToast]                 = useState(null)
 
-  const [formPaciente, setFormPaciente] = useState({})
+  const [formPaciente, setFormPaciente]   = useState({})
   const [formCobertura, setFormCobertura] = useState({})
 
   const showToast = (msg, type = 'success') => {
@@ -46,22 +58,22 @@ export function DetallePaciente() {
         const data = await getPacienteById(id)
         setPaciente(data)
         setFormPaciente({
-          nombre:                    data.nombre,
-          apellido:                  data.apellido,
-          telefono:                  data.telefono || '',
-          email:                     data.email || '',
-          direccion:                 data.direccion || '',
-          contactoEmergenciaNombre:  data.contactoEmergenciaNombre || '',
+          nombre:                     data.nombre,
+          apellido:                   data.apellido,
+          telefono:                   data.telefono || '',
+          email:                      data.email || '',
+          direccion:                  data.direccion || '',
+          contactoEmergenciaNombre:   data.contactoEmergenciaNombre || '',
           contactoEmergenciaTelefono: data.contactoEmergenciaTelefono || '',
-          grupoSanguineo:            data.grupoSanguineo || '',
-          alergias:                  data.alergias || '',
+          grupoSanguineo:             data.grupoSanguineo || '',
+          alergias:                   data.alergias || '',
         })
         const cob = data.coberturaMedica?.[0]
         setFormCobertura({
-          obraSocial:     cob?.obraSocial     || '',
-          plan:           cob?.plan           || '',
-          numeroAfiliado: cob?.numeroAfiliado || '',
-          activa:         cob?.activa ?? true,  // ← era cubre_atencion
+          obraSocial:      cob?.obraSocial      || '',
+          plan:            cob?.plan            || '',
+          numeroAfiliado:  cob?.numeroAfiliado  || '',
+          estadoCobertura: cob?.estadoCobertura || 'pendiente',
         })
       } catch (err) {
         console.error(err)
@@ -89,10 +101,15 @@ export function DetallePaciente() {
   const handleSaveCobertura = async () => {
     setSaving(true)
     try {
-      await updateCobertura(id, formCobertura)
+      // Guardamos estadoCobertura y derivamos activa para mantener ambos campos en sync
+      const payload = {
+        ...formCobertura,
+        activa: activaDesdeEstado(formCobertura.estadoCobertura),
+      }
+      await updateCobertura(id, payload)
       setPaciente(prev => ({
         ...prev,
-        coberturaMedica: [{ ...prev.coberturaMedica?.[0], ...formCobertura }],
+        coberturaMedica: [{ ...prev.coberturaMedica?.[0], ...payload }],
       }))
       setEditandoCobertura(false)
       showToast('Cobertura actualizada.')
@@ -122,6 +139,7 @@ export function DetallePaciente() {
 
   const cobertura = paciente.coberturaMedica?.[0]
   const historial = paciente.historialClinico?.[0]
+  const estadoCobDisplay = ESTADO_COB[cobertura?.estadoCobertura] ?? ESTADO_COB.pendiente
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -354,16 +372,25 @@ export function DetallePaciente() {
                       disabled={!formCobertura.obraSocial}
                     />
                   </div>
-                  {/* Toggle activa — era cubre_atencion */}
-                  <div
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer"
-                    onClick={() => setFormCobertura(p => ({ ...p, activa: !p.activa }))}
-                  >
-                    <p className="text-sm font-semibold text-slate-700">¿Cubre la atención?</p>
-                    <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                      ${formCobertura.activa ? 'bg-[#013FF6]' : 'bg-slate-200'}`}>
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform
-                        ${formCobertura.activa ? 'translate-x-6' : 'translate-x-1'}`} />
+                  {/* Selector de estado — 3 opciones claras */}
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Estado de cobertura</label>
+                    <div className="flex flex-col gap-1.5">
+                      {Object.entries(ESTADO_COB).map(([valor, { label, bg, text, Icon }]) => (
+                        <button
+                          key={valor}
+                          type="button"
+                          onClick={() => setFormCobertura(p => ({ ...p, estadoCobertura: valor }))}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors
+                            ${formCobertura.estadoCobertura === valor
+                              ? `${bg} ${text} border-current`
+                              : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
+                            }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </>
@@ -385,15 +412,11 @@ export function DetallePaciente() {
                       <p className="text-sm font-medium text-slate-800 mt-0.5">{cobertura.numeroAfiliado}</p>
                     </div>
                   )}
-                  {/* activa — era cubre_atencion */}
+                  {/* Estado de cobertura */}
                   <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold
-                    ${cobertura?.activa !== false
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-red-50 text-red-600'}`}>
-                    {cobertura?.activa !== false
-                      ? <CheckCircle2 className="h-4 w-4" />
-                      : <XCircle className="h-4 w-4" />}
-                    {cobertura?.activa !== false ? 'Cubre la atención' : 'No cubre'}
+                    ${estadoCobDisplay.bg} ${estadoCobDisplay.text}`}>
+                    <estadoCobDisplay.Icon className="h-4 w-4" />
+                    {estadoCobDisplay.label}
                   </div>
                 </>
               )}

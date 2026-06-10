@@ -45,11 +45,16 @@ function ModalPaciente({ paciente, onClose }) {
   const guardias = paciente.guardia || []
 
   const GUARDIA_ESTADO = {
-    en_espera:   { label: 'En espera',   color: '#f59e0b', bg: '#fef3c7' },
+    en_espera:   { label: 'En espera',   color: '#92400e', bg: '#fef3c7' },
     en_atencion: { label: 'En atención', color: '#013FF6', bg: '#dbeafe' },
-    finalizada:  { label: 'Finalizada',  color: '#059669', bg: '#d1fae5' },
-    derivada:    { label: 'Derivada',    color: '#8b5cf6', bg: '#ede9fe' },
+    atendido:    { label: 'Atendido',    color: '#059669', bg: '#d1fae5' },
+    derivado:    { label: 'Derivado',    color: '#5b21b6', bg: '#ede9fe' },
   }
+
+  // Estado actual del paciente: la guardia más reciente activa, si existe
+  const guardiaActiva = guardias
+    .filter(g => ['en_espera', 'en_atencion'].includes(g.estado))
+    .sort((a, b) => new Date(b.ingresoAt ?? b.createdAt) - new Date(a.ingresoAt ?? a.createdAt))[0]
 
   return (
     <div
@@ -57,7 +62,7 @@ function ModalPaciente({ paciente, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -79,6 +84,25 @@ function ModalPaciente({ paciente, onClose }) {
         </div>
 
         <div className="p-6 space-y-5">
+
+          {/* Estado actual de guardia */}
+          {guardiaActiva && (() => {
+            const est = GUARDIA_ESTADO[guardiaActiva.estado]
+            return (
+              <div
+                className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm"
+                style={{ backgroundColor: est.bg, color: est.color }}
+              >
+                <Clock className="h-4 w-4 flex-shrink-0" />
+                <span>{est.label}</span>
+                {guardiaActiva.ingresoAt && (
+                  <span className="ml-auto text-xs font-medium opacity-70">
+                    desde {fmtHour(guardiaActiva.ingresoAt)}
+                  </span>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Datos personales */}
           <section>
@@ -118,8 +142,7 @@ function ModalPaciente({ paciente, onClose }) {
               <div className={`flex-1 rounded-xl p-3 ${isLong ? 'bg-red-50' : 'bg-slate-50'}`}>
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tiempo en espera</p>
                 <p className={`text-sm font-semibold mt-0.5 ${isLong ? 'text-red-500' : 'text-slate-800'}`}>
-                  {wait || '—'}
-                  {isLong && ' ⚠️'}
+                  {wait || '—'}{isLong && ' ⚠️'}
                 </p>
               </div>
             </div>
@@ -133,11 +156,22 @@ function ModalPaciente({ paciente, onClose }) {
             {cobertura ? (
               <div className="bg-[#ACEC00]/10 border border-[#ACEC00]/30 rounded-xl p-3 space-y-1">
                 <p className="text-sm font-bold text-slate-800">{cobertura.obraSocial}</p>
-                {cobertura.nroAfiliado && (
-                  <p className="text-xs text-slate-500">N° afiliado: {cobertura.nroAfiliado}</p>
+                {/* FIX: era nroAfiliado, la BD tiene numeroAfiliado */}
+                {cobertura.numeroAfiliado && (
+                  <p className="text-xs text-slate-500">N° afiliado: {cobertura.numeroAfiliado}</p>
                 )}
-                <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${cobertura.activa ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                  {cobertura.activa ? 'Activa' : 'Inactiva'}
+                <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                  cobertura.estadoCobertura === 'cubre'
+                    ? 'bg-green-100 text-green-700'
+                    : cobertura.estadoCobertura === 'no_cubre'
+                    ? 'bg-red-100 text-red-600'
+                    : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {cobertura.estadoCobertura === 'cubre'
+                    ? 'Cubre'
+                    : cobertura.estadoCobertura === 'no_cubre'
+                    ? 'No cubre'
+                    : 'Por verificar'}
                 </span>
               </div>
             ) : (
@@ -153,16 +187,18 @@ function ModalPaciente({ paciente, onClose }) {
             <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
               <Phone className="h-3.5 w-3.5" /> Contacto de emergencia
             </h3>
-            {paciente.nombreEmergencia || paciente.telefonoEmergencia ? (
+            {/* FIX: era nombreEmergencia/telefonoEmergencia, la BD tiene contactoEmergenciaNombre/Telefono */}
+            {paciente.contactoEmergenciaNombre || paciente.contactoEmergenciaTelefono ? (
               <div className="bg-slate-50 rounded-xl p-3 space-y-1">
-                {paciente.nombreEmergencia && (
-                  <p className="text-sm font-semibold text-slate-800">{paciente.nombreEmergencia}</p>
+                {paciente.contactoEmergenciaNombre && (
+                  <p className="text-sm font-semibold text-slate-800">{paciente.contactoEmergenciaNombre}</p>
                 )}
-                {paciente.telefonoEmergencia && (
-                  <a>
-                    href={`tel:${paciente.telefonoEmergencia}`}
+                {paciente.contactoEmergenciaTelefono && (
+                  <a
+                    href={`tel:${paciente.contactoEmergenciaTelefono}`}
                     className="text-sm text-[#013FF6] font-medium hover:underline"
-                    {paciente.telefonoEmergencia}
+                  >
+                    {paciente.contactoEmergenciaTelefono}
                   </a>
                 )}
               </div>
@@ -174,31 +210,36 @@ function ModalPaciente({ paciente, onClose }) {
           {/* Historial de guardias */}
           <section>
             <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-              <Activity className="h-3.5 w-3.5" /> Guardias / historial clínico
+              <Activity className="h-3.5 w-3.5" /> Guardias
             </h3>
             {guardias.length === 0 ? (
               <p className="text-sm text-slate-400 bg-slate-50 rounded-xl p-3">Sin guardias registradas</p>
             ) : (
               <div className="space-y-2">
-                {guardias.map(g => {
-                  const est = GUARDIA_ESTADO[g.estado] || GUARDIA_ESTADO.en_espera
-                  return (
-                    <div key={g.id} className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5">
-                      <div>
-                        <p className="text-xs font-semibold text-slate-700">{fmtDate(g.createdAt)}</p>
-                        {g.motivoConsulta && (
-                          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{g.motivoConsulta}</p>
-                        )}
+                {guardias
+                  .slice()
+                  .sort((a, b) => new Date(b.ingresoAt ?? b.createdAt) - new Date(a.ingresoAt ?? a.createdAt))
+                  .map(g => {
+                    const est = GUARDIA_ESTADO[g.estado] ?? GUARDIA_ESTADO.en_espera
+                    return (
+                      <div key={g.id} className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5">
+                        <div>
+                          <p className="text-xs font-semibold text-slate-700">
+                            {fmtDate(g.ingresoAt ?? g.createdAt)}
+                          </p>
+                          {g.motivo && (
+                            <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{g.motivo}</p>
+                          )}
+                        </div>
+                        <span
+                          className="text-[10px] font-semibold px-2 py-1 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: est.bg, color: est.color }}
+                        >
+                          {est.label}
+                        </span>
                       </div>
-                      <span
-                        className="text-[10px] font-semibold px-2 py-1 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: est.bg, color: est.color }}
-                      >
-                        {est.label}
-                      </span>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
               </div>
             )}
           </section>
@@ -236,12 +277,12 @@ const StatCard = ({ label, value, sub, icon: Icon, accent, loading }) => (
 
 // ── Componente principal ──────────────────────────────────────
 export function ReceptionistDashboard() {
-  const [patients, setPatients]         = useState([])
-  const [freeBeds, setFreeBeds]         = useState(null)
-  const [loading, setLoading]           = useState(true)
-  const [search, setSearch]             = useState('')
-  const [lastRefresh, setLastRefresh]   = useState(new Date())
-  const [selectedPatient, setSelectedPatient] = useState(null)  // ← nuevo
+  const [patients, setPatients]               = useState([])
+  const [freeBeds, setFreeBeds]               = useState(null)
+  const [loading, setLoading]                 = useState(true)
+  const [search, setSearch]                   = useState('')
+  const [lastRefresh, setLastRefresh]         = useState(new Date())
+  const [selectedPatient, setSelectedPatient] = useState(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -255,11 +296,11 @@ export function ReceptionistDashboard() {
           .select(`
             id, nombre, apellido, dni, "fechaNacimiento",
             "contactoEmergenciaNombre", "contactoEmergenciaTelefono", "createdAt",
-            "coberturaMedica" ( "obraSocial", "numeroAfiliado", "activa" ),
-            guardia ( id, estado, "createdAt" )
+            "coberturaMedica" ( "obraSocial", "numeroAfiliado", "estadoCobertura" ),
+            guardia ( id, estado, "ingresoAt", motivo )
           `)
-          .gte('createdAt', todayStart.toISOString())
-          .order('createdAt', { ascending: true }),
+          .gte('"createdAt"', todayStart.toISOString())
+          .order('"createdAt"', { ascending: true }),
 
         supabase
           .from('cama')
@@ -296,11 +337,18 @@ export function ReceptionistDashboard() {
     )
   })
 
+  // FIX: "En espera" cuenta guardias activas, no el total de pacientes
+  const enEspera = patients.filter(p =>
+    p.guardia?.some(g => g.estado === 'en_espera')
+  ).length
+
+  const conCobertura = patients.filter(p => p.coberturaMedica?.length > 0).length
+
   const stats = [
-    { label: 'Registrados hoy', value: patients.length, sub: 'en orden de llegada', icon: Users, accent: '#013FF6' },
-    { label: 'En espera', value: patients.length, sub: 'atención por turno', icon: Clock, accent: '#f59e0b' },
-    { label: 'Camas disponibles', value: freeBeds ?? '—', sub: 'en todas las áreas', icon: BedDouble, accent: '#ACEC00' },
-    { label: 'Con cobertura', value: patients.filter(p => p.coberturaMedica?.length > 0).length, sub: `de ${patients.length} hoy`, icon: Shield, accent: '#8b5cf6' },
+    { label: 'Registrados hoy', value: patients.length,  sub: 'desde las 00:00',      icon: Users,    accent: '#013FF6' },
+    { label: 'En espera',       value: enEspera,          sub: 'aguardando atención',  icon: Clock,    accent: '#f59e0b' },
+    { label: 'Camas libres',    value: freeBeds ?? '—',   sub: 'en todas las áreas',   icon: BedDouble, accent: '#ACEC00' },
+    { label: 'Con cobertura',   value: conCobertura,      sub: `de ${patients.length} hoy`, icon: Shield, accent: '#8b5cf6' },
   ]
 
   return (
@@ -393,10 +441,21 @@ export function ReceptionistDashboard() {
         ) : (
           <div className="divide-y divide-slate-100/80">
             {filtered.map((p, idx) => {
-              const nombre  = `${p.nombre} ${p.apellido}`
+              const nombre   = `${p.nombre} ${p.apellido}`
               const initials = `${p.nombre?.[0] ?? ''}${p.apellido?.[0] ?? ''}`.toUpperCase()
-              const wait    = waitMinutes(p.createdAt)
-              const isLong  = p.createdAt && (Date.now() - new Date(p.createdAt)) > 60 * 60 * 1000
+              const wait     = waitMinutes(p.createdAt)
+              const isLong   = p.createdAt && (Date.now() - new Date(p.createdAt)) > 60 * 60 * 1000
+
+              // Estado de la guardia activa más reciente del paciente
+              const guardiaActiva = p.guardia
+                ?.filter(g => ['en_espera', 'en_atencion'].includes(g.estado))
+                ?.sort((a, b) => new Date(b.ingresoAt ?? b.createdAt) - new Date(a.ingresoAt ?? a.createdAt))[0]
+
+              const ESTADO_PILL = {
+                en_espera:   { label: 'En espera',   bg: '#fef3c7', color: '#92400e' },
+                en_atencion: { label: 'En atención', bg: '#dbeafe', color: '#1e40af' },
+              }
+              const pill = guardiaActiva ? ESTADO_PILL[guardiaActiva.estado] : null
 
               return (
                 <div
@@ -414,13 +473,21 @@ export function ReceptionistDashboard() {
                   <div className="hidden sm:block flex-shrink-0">
                     {coverageBadge(p.coberturaMedica)}
                   </div>
+                  {/* Estado de guardia — solo si hay una activa */}
+                  {pill && (
+                    <span
+                      className="hidden md:inline-flex text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: pill.bg, color: pill.color }}
+                    >
+                      {pill.label}
+                    </span>
+                  )}
                   <div className="hidden md:flex flex-col items-end flex-shrink-0 text-right">
                     <span className="text-xs font-semibold text-slate-700">{fmtHour(p.createdAt)}</span>
                     <span className={`text-[10px] font-medium ${isLong ? 'text-red-400' : 'text-slate-400'}`}>
                       {wait ? `Espera: ${wait}` : '—'}
                     </span>
                   </div>
-                  {/* ← Botón Ver conectado */}
                   <button
                     onClick={() => setSelectedPatient(p)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#013FF6]/10 text-[#013FF6] hover:bg-[#013FF6]/20"
@@ -437,10 +504,11 @@ export function ReceptionistDashboard() {
           <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/50">
             <p className="text-xs text-slate-400">
               <span className="font-semibold text-slate-600">{filtered.length}</span> paciente{filtered.length !== 1 ? 's' : ''} hoy
-              {patients.filter(p => p.coberturaMedica?.length > 0).length > 0 && (
-                <> · <span className="font-semibold text-slate-600">
-                  {patients.filter(p => p.coberturaMedica?.length > 0).length}
-                </span> con cobertura</>
+              {enEspera > 0 && (
+                <> · <span className="font-semibold text-amber-600">{enEspera} en espera</span></>
+              )}
+              {conCobertura > 0 && (
+                <> · <span className="font-semibold text-slate-600">{conCobertura}</span> con cobertura</>
               )}
             </p>
           </div>
@@ -450,10 +518,10 @@ export function ReceptionistDashboard() {
       {/* Acciones rápidas */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Nuevo paciente',   icon: UserPlus,  href: '/empleado/registro', color: '#013FF6' },
-          { label: 'Control de camas', icon: BedDouble, href: '/empleado/camas',    color: '#ACEC00' },
-          { label: 'Turnos del día',   icon: Calendar,  href: '/empleado/turnos',   color: '#8b5cf6' },
-          { label: 'Mis pacientes',    icon: Users,     href: '/empleado/historial',color: '#f59e0b' },
+          { label: 'Nuevo paciente',   icon: UserPlus,  href: '/empleado/registro',      color: '#013FF6' },
+          { label: 'Control de camas', icon: BedDouble, href: '/empleado/camas',          color: '#ACEC00' },
+          { label: 'Turnos del día',   icon: Calendar,  href: '/empleado/turnos',         color: '#8b5cf6' },
+          { label: 'Cola de espera',   icon: Users,     href: '/empleado/cola-espera',    color: '#f59e0b' },
         ].map(({ label, icon: Icon, href, color }) => (
           <Link
             key={label}

@@ -208,7 +208,7 @@ export function HistorialAdmin() {
         setPacientes(data || [])
       } catch {
         await new Promise(r => setTimeout(r, 500))
-        setPacientes(DEMO_PACIENTES)
+        setPacientes([])
       } finally {
         setLoading(false)
       }
