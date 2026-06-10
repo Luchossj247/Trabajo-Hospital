@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../../lib/supabaseClient'
 import {
-  UserPlus, Clock, BedDouble, RefreshCw, ChevronRight,
+  UserPlus, Clock, RefreshCw, ChevronRight,
   CheckCircle2, AlertCircle, Shield, ShieldOff, Search,
-  Calendar, Users, Loader2, X, Phone, User, FileText,
+  Calendar, Users, X, Phone, User,
   Activity,
 } from 'lucide-react'
 
@@ -51,7 +51,6 @@ function ModalPaciente({ paciente, onClose }) {
     derivado:    { label: 'Derivado',    color: '#5b21b6', bg: '#ede9fe' },
   }
 
-  // Estado actual del paciente: la guardia más reciente activa, si existe
   const guardiaActiva = guardias
     .filter(g => ['en_espera', 'en_atencion'].includes(g.estado))
     .sort((a, b) => new Date(b.ingresoAt ?? b.createdAt) - new Date(a.ingresoAt ?? a.createdAt))[0]
@@ -156,7 +155,6 @@ function ModalPaciente({ paciente, onClose }) {
             {cobertura ? (
               <div className="bg-[#ACEC00]/10 border border-[#ACEC00]/30 rounded-xl p-3 space-y-1">
                 <p className="text-sm font-bold text-slate-800">{cobertura.obraSocial}</p>
-                {/* FIX: era nroAfiliado, la BD tiene numeroAfiliado */}
                 {cobertura.numeroAfiliado && (
                   <p className="text-xs text-slate-500">N° afiliado: {cobertura.numeroAfiliado}</p>
                 )}
@@ -187,7 +185,6 @@ function ModalPaciente({ paciente, onClose }) {
             <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
               <Phone className="h-3.5 w-3.5" /> Contacto de emergencia
             </h3>
-            {/* FIX: era nombreEmergencia/telefonoEmergencia, la BD tiene contactoEmergenciaNombre/Telefono */}
             {paciente.contactoEmergenciaNombre || paciente.contactoEmergenciaTelefono ? (
               <div className="bg-slate-50 rounded-xl p-3 space-y-1">
                 {paciente.contactoEmergenciaNombre && (
@@ -278,7 +275,7 @@ const StatCard = ({ label, value, sub, icon: Icon, accent, loading }) => (
 // ── Componente principal ──────────────────────────────────────
 export function ReceptionistDashboard() {
   const [patients, setPatients]               = useState([])
-  const [freeBeds, setFreeBeds]               = useState(null)
+  const [turnosHoy, setTurnosHoy]             = useState([])
   const [loading, setLoading]                 = useState(true)
   const [search, setSearch]                   = useState('')
   const [lastRefresh, setLastRefresh]         = useState(new Date())
@@ -290,30 +287,31 @@ export function ReceptionistDashboard() {
       const todayStart = new Date()
       todayStart.setHours(0, 0, 0, 0)
 
-      const [patientsRes, bedsRes] = await Promise.all([
+      const [patientsRes, turnosRes] = await Promise.all([
         supabase
           .from('paciente')
           .select(`
             id, nombre, apellido, dni, "fechaNacimiento",
             "contactoEmergenciaNombre", "contactoEmergenciaTelefono", "createdAt",
             "coberturaMedica" ( "obraSocial", "numeroAfiliado", "estadoCobertura" ),
-            guardia ( id, estado, "ingresoAt", motivo )
+            guardia ( id, estado, "createdAt" )
           `)
-          .gte('"createdAt"', todayStart.toISOString())
-          .order('"createdAt"', { ascending: true }),
-
+            .gte('"createdAt"', todayStart.toISOString())
+            .order('"createdAt"', { ascending: true }),
+            
         supabase
-          .from('cama')
-          .select('estado')
-          .eq('estado', 'disponible'),
+          .from('turno')
+          .select('id, estado')
+          .eq('fecha', todayStart.toISOString())
+          .neq('estado', 'cancelado'),
       ])
 
       setPatients(patientsRes.data || [])
-      setFreeBeds(bedsRes.data?.length ?? null)
+      setTurnosHoy(turnosRes.data?.length ?? null)
     } catch (err) {
       console.error('Error fetching receptionist dashboard:', err)
       setPatients([])
-      setFreeBeds(null)
+      setTurnosHoy([])
     } finally {
       setLoading(false)
       setLastRefresh(new Date())
@@ -337,7 +335,6 @@ export function ReceptionistDashboard() {
     )
   })
 
-  // FIX: "En espera" cuenta guardias activas, no el total de pacientes
   const enEspera = patients.filter(p =>
     p.guardia?.some(g => g.estado === 'en_espera')
   ).length
@@ -345,10 +342,10 @@ export function ReceptionistDashboard() {
   const conCobertura = patients.filter(p => p.coberturaMedica?.length > 0).length
 
   const stats = [
-    { label: 'Registrados hoy', value: patients.length,  sub: 'desde las 00:00',      icon: Users,    accent: '#013FF6' },
-    { label: 'En espera',       value: enEspera,          sub: 'aguardando atención',  icon: Clock,    accent: '#f59e0b' },
-    { label: 'Camas libres',    value: freeBeds ?? '—',   sub: 'en todas las áreas',   icon: BedDouble, accent: '#ACEC00' },
-    { label: 'Con cobertura',   value: conCobertura,      sub: `de ${patients.length} hoy`, icon: Shield, accent: '#8b5cf6' },
+    { label: 'Registrados hoy', value: patients.length,    sub: 'desde las 00:00',         icon: Users,    accent: '#013FF6' },
+    { label: 'En espera',       value: enEspera,            sub: 'aguardando atención',     icon: Clock,    accent: '#f59e0b' },
+    { label: 'Turnos hoy',      value: turnosHoy.length,    sub: 'consultas programadas',   icon: Calendar, accent: '#ACEC00' },
+    { label: 'Con cobertura',   value: conCobertura,        sub: `de ${patients.length} hoy`, icon: Shield, accent: '#8b5cf6' },
   ]
 
   return (
@@ -446,7 +443,6 @@ export function ReceptionistDashboard() {
               const wait     = waitMinutes(p.createdAt)
               const isLong   = p.createdAt && (Date.now() - new Date(p.createdAt)) > 60 * 60 * 1000
 
-              // Estado de la guardia activa más reciente del paciente
               const guardiaActiva = p.guardia
                 ?.filter(g => ['en_espera', 'en_atencion'].includes(g.estado))
                 ?.sort((a, b) => new Date(b.ingresoAt ?? b.createdAt) - new Date(a.ingresoAt ?? a.createdAt))[0]
@@ -473,7 +469,6 @@ export function ReceptionistDashboard() {
                   <div className="hidden sm:block flex-shrink-0">
                     {coverageBadge(p.coberturaMedica)}
                   </div>
-                  {/* Estado de guardia — solo si hay una activa */}
                   {pill && (
                     <span
                       className="hidden md:inline-flex text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
@@ -518,10 +513,10 @@ export function ReceptionistDashboard() {
       {/* Acciones rápidas */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Nuevo paciente',   icon: UserPlus,  href: '/empleado/registro',      color: '#013FF6' },
-          { label: 'Control de camas', icon: BedDouble, href: '/empleado/camas',          color: '#ACEC00' },
-          { label: 'Turnos del día',   icon: Calendar,  href: '/empleado/turnos',         color: '#8b5cf6' },
-          { label: 'Cola de espera',   icon: Users,     href: '/empleado/cola-espera',    color: '#f59e0b' },
+          { label: 'Nuevo paciente',   icon: UserPlus,  href: '/empleado/registro',    color: '#013FF6' },
+          { label: 'Turnos del día',   icon: Calendar,  href: '/empleado/turnos',       color: '#ACEC00' },
+          { label: 'Cola de espera',   icon: Users,     href: '/empleado/cola-espera',  color: '#f59e0b' },
+          { label: 'Verificar coberturas', icon: Shield, href: '/empleado/cobertura',  color: '#8b5cf6' },
         ].map(({ label, icon: Icon, href, color }) => (
           <Link
             key={label}
