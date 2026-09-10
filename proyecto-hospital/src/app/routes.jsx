@@ -20,6 +20,8 @@ import { ColaEspera } from './pages/ColaEspera.jsx'
 import { HistorialAdmin } from './pages/HistorialAdmin.jsx'
 import { Turnos }        from './pages/Turnos.jsx'
 import { GestionAgenda } from './pages/GestionAgenda.jsx'
+import { Triaje }        from './pages/Triaje.jsx'
+import { ControlCamas }  from './pages/ControlCamas.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -68,8 +70,8 @@ export const router = createBrowserRouter([
       protect('registro/:id',    <DetallePaciente />,   'registro'),
 
       // ── Módulos clínicos ───────────────────────────────────
-      protect('triaje',          <Placeholder title="Triaje y Urgencias" />),
-      protect('camas',           <Placeholder title="Control de Camas" />),
+      protect('triaje',          <Triaje />),
+      protect('camas',           <ControlCamas />),
       protect('historial',       <Placeholder title="Historial Clínico — Médico" />),
       protect('farmacia',        <Placeholder title="Farmacia" />),
 
