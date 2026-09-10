@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   HeartPulse, Plus, X, Save, Loader2, Search, Clock, User,
   AlertTriangle, CheckCircle2, MessageSquare, Send, ArrowRightCircle,
-  LogOut, Ambulance, RefreshCw, ShieldAlert,
+  LogOut, Ambulance, RefreshCw, ShieldAlert, Pill,
 } from 'lucide-react'
 import {
   getColaGuardia, crearIngresoGuardia, actualizarTriaje,
   cambiarEstadoGuardia, getComentarios, addComentario,
 } from '../../services/triajeService'
 import { searchPacientes } from '../../services/pacienteService'
+import { crearReceta } from '../../services/recetaService'
 import { useAuth } from '../context/AuthContext'
 
 // ── Niveles de triaje (estilo ESI/Manchester) ─────────────────────
@@ -102,35 +103,30 @@ function ModalNuevoIngreso({ onClose, onCreated, enfermeroId }) {
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <input
-                value={paciente ? `${paciente.nombre} ${paciente.apellido}` : query}
+                value={paciente ? `${paciente.nombre} ${paciente.apellido} - DNI ${paciente.dni}` : query}
                 onChange={e => { setQuery(e.target.value); setPaciente(null) }}
-                placeholder="Buscar por nombre, apellido o DNI..."
-                className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
-              />
+                placeholder="Buscar por nombre o DNI..."
+                className="w-full pl-9 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
             </div>
-            {resultados.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
-                {resultados.slice(0, 5).map(p => (
-                  <button key={p.id} onClick={() => { setPaciente(p); setResultados([]) }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 text-left">
-                    <User className="h-4 w-4 text-[#013FF6] flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{p.nombre} {p.apellido}</p>
-                      <p className="text-xs text-slate-400">DNI {p.dni}</p>
-                    </div>
+            {resultados.length > 0 && !paciente && (
+              <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                {resultados.map(p => (
+                  <button key={p.id} onClick={() => { setPaciente(p); setQuery('') }}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 text-sm border-b border-slate-50 last:border-0">
+                    <p className="font-semibold text-slate-800">{p.nombre} {p.apellido}</p>
+                    <p className="text-xs text-slate-400">DNI {p.dni}</p>
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Medio de ingreso */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Medio de ingreso</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Medio de ingreso</label>
+            <div className="flex flex-wrap gap-1.5">
               {MEDIOS_INGRESO.map(m => (
                 <button key={m.value} onClick={() => setField('medioIngreso', m.value)}
-                  className={`py-2 rounded-lg text-xs font-semibold transition-all
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
                     ${form.medioIngreso === m.value ? 'bg-[#013FF6] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                   {m.label}
                 </button>
@@ -252,21 +248,21 @@ function ModalEditarTriaje({ guardia, onClose, onSaved }) {
 
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Comentarios de análisis</label>
-            <textarea value={comentario} onChange={e => setComentario(e.target.value)} rows={2}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40 resize-none" />
+            <textarea value={comentario} onChange={e => setComentario(e.target.value)} rows={3}
+              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40 resize-none" />
           </div>
 
-          {nivelCambio && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-amber-800 cursor-pointer">
-                <input type="checkbox" checked={reordenado} onChange={e => setReordenado(e.target.checked)} />
-                Esto es un reordenamiento manual de la cola
-              </label>
-              {reordenado && (
-                <textarea value={justificacion} onChange={e => setJustificacion(e.target.value)} rows={2}
-                  placeholder="Justificación obligatoria del reordenamiento..."
-                  className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40 resize-none" />
-              )}
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input type="checkbox" checked={reordenado} onChange={e => setReordenado(e.target.checked)} className="rounded" />
+            Reordenamiento manual de la cola
+          </label>
+
+          {reordenado && (
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Justificación *</label>
+              <textarea value={justificacion} onChange={e => setJustificacion(e.target.value)} rows={2}
+                placeholder="Motivo del reordenamiento manual..."
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40 resize-none" />
             </div>
           )}
 
@@ -359,8 +355,92 @@ function ModalComentarios({ guardia, onClose, usuarioId }) {
   )
 }
 
+// ── Modal: recetar medicamentos (solo si el paciente está en_atencion) ────
+function ModalRecetar({ guardia, medicoId, onClose, onCreated }) {
+  const [items, setItems] = useState([{ medicamentoNombre: '', dosis: '', frecuencia: '', indicaciones: '' }])
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  const setItem = (i, campo, valor) =>
+    setItems(prev => prev.map((it, idx) => idx === i ? { ...it, [campo]: valor } : it))
+
+  const addItem = () => setItems(prev => [...prev, { medicamentoNombre: '', dosis: '', frecuencia: '', indicaciones: '' }])
+  const removeItem = (i) => setItems(prev => prev.filter((_, idx) => idx !== i))
+
+  const handleSave = async () => {
+    const validos = items.filter(it => it.medicamentoNombre.trim())
+    if (validos.length === 0) return setError('Agregá al menos un medicamento con nombre.')
+    setSaving(true); setError('')
+    try {
+      const receta = await crearReceta({ guardiaId: guardia.id, medicoId, items: validos })
+      onCreated(receta)
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Error al generar la receta.')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Recetar medicamentos</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{guardia.paciente?.nombre} {guardia.paciente?.apellido} — se envía a Farmacia sin verificar stock</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="h-5 w-5" /></button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {items.map((it, i) => (
+            <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2 relative">
+              {items.length > 1 && (
+                <button onClick={() => removeItem(i)} className="absolute top-2 right-2 text-slate-300 hover:text-red-500">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              <input value={it.medicamentoNombre} onChange={e => setItem(i, 'medicamentoNombre', e.target.value)}
+                placeholder="Medicamento *"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
+              <div className="grid grid-cols-2 gap-2">
+                <input value={it.dosis} onChange={e => setItem(i, 'dosis', e.target.value)}
+                  placeholder="Dosis (ej: 500mg)"
+                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
+                <input value={it.frecuencia} onChange={e => setItem(i, 'frecuencia', e.target.value)}
+                  placeholder="Frecuencia (ej: cada 8hs)"
+                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
+              </div>
+              <input value={it.indicaciones} onChange={e => setItem(i, 'indicaciones', e.target.value)}
+                placeholder="Indicaciones adicionales (opcional)"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
+            </div>
+          ))}
+
+          <button onClick={addItem} className="text-xs font-semibold text-[#013FF6] hover:underline">
+            + Agregar otro medicamento
+          </button>
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" /> {error}
+            </div>
+          )}
+        </div>
+
+        <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl bg-[#013FF6] text-white text-sm font-semibold hover:bg-[#0033cc] flex items-center justify-center gap-2 disabled:opacity-60">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Enviar a Farmacia
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Fila de paciente en la cola ─────────────────────────────────────
-function FilaGuardia({ item, posicion, onEditar, onComentarios, onAtender, onAlta, onDerivar }) {
+function FilaGuardia({ item, posicion, onEditar, onComentarios, onAtender, onAlta, onRecetar }) {
   const nivel  = nivelInfo(item.nivelTriage)
   const espera = minutosEspera(item.ingresoAt)
 
@@ -405,6 +485,9 @@ function FilaGuardia({ item, posicion, onEditar, onComentarios, onAtender, onAlt
         {item.estado === 'en_espera' && (
           <button onClick={() => onAtender(item)} title="Pasar a atención" className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"><ArrowRightCircle className="h-4 w-4" /></button>
         )}
+        {item.estado === 'en_atencion' && (
+          <button onClick={() => onRecetar(item)} title="Recetar medicamentos" className="p-1.5 rounded-lg text-slate-400 hover:text-[#013FF6] hover:bg-[#013FF6]/10"><Pill className="h-4 w-4" /></button>
+        )}
         <button onClick={() => onAlta(item)} title="Dar de alta" className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"><LogOut className="h-4 w-4" /></button>
       </div>
     </div>
@@ -420,6 +503,7 @@ export function Triaje() {
   const [modalNuevo, setModalNuevo]   = useState(false)
   const [modalEditar, setModalEditar] = useState(null)
   const [modalComentarios, setModalComentarios] = useState(null)
+  const [modalRecetar, setModalRecetar] = useState(null)
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
@@ -503,7 +587,7 @@ export function Triaje() {
             <FilaGuardia
               key={item.id} item={item} posicion={i + 1}
               onEditar={setModalEditar} onComentarios={setModalComentarios}
-              onAtender={handleAtender} onAlta={handleAlta}
+              onAtender={handleAtender} onAlta={handleAlta} onRecetar={setModalRecetar}
             />
           ))
         )}
@@ -517,6 +601,14 @@ export function Triaje() {
       )}
       {modalComentarios && (
         <ModalComentarios guardia={modalComentarios} onClose={() => setModalComentarios(null)} usuarioId={perfil?.id} />
+      )}
+      {modalRecetar && (
+        <ModalRecetar
+          guardia={modalRecetar}
+          medicoId={perfil?.id}
+          onClose={() => setModalRecetar(null)}
+          onCreated={() => showToast('Receta enviada a Farmacia.')}
+        />
       )}
     </div>
   )

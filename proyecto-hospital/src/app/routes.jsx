@@ -22,6 +22,8 @@ import { Turnos }        from './pages/Turnos.jsx'
 import { GestionAgenda } from './pages/GestionAgenda.jsx'
 import { Triaje }        from './pages/Triaje.jsx'
 import { ControlCamas }  from './pages/ControlCamas.jsx'
+import { Farmacia }      from './pages/Farmacia.jsx'
+import { HistorialMedico } from './pages/HistorialMedico.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -72,8 +74,8 @@ export const router = createBrowserRouter([
       // ── Módulos clínicos ───────────────────────────────────
       protect('triaje',          <Triaje />),
       protect('camas',           <ControlCamas />),
-      protect('historial',       <Placeholder title="Historial Clínico — Médico" />),
-      protect('farmacia',        <Placeholder title="Farmacia" />),
+      protect('historial',       <HistorialMedico />),
+      protect('farmacia',        <Farmacia />),
 
       // ── Recepción / Admin ──────────────────────────────────
       protect('cola-espera',     <ColaEspera />),
