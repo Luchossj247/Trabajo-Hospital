@@ -122,7 +122,11 @@ export function Ajustes() {
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
             <input value={perfil?.email || ''} disabled
               className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-400 cursor-not-allowed" />
-            <p className="text-xs text-slate-400 mt-1">El email no se puede cambiar desde acá — contactá a un administrador.</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {perfil?.rol === 'administrador'
+                ? 'El email no puede modificarse desde aqui. Si necesitás modificarlo, contacta al equipo tecnico.'
+                : 'El email no se puede cambiar desde acá — contactá a un administrador.'}
+            </p>
           </div>
 
           <div>

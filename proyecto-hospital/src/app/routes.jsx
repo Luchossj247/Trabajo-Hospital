@@ -29,6 +29,7 @@ import { Farmacia }      from './pages/Farmacia.jsx'
 import { HistorialMedico } from './pages/HistorialMedico.jsx'
 import { Reportes } from './pages/Reportes.jsx'
 import { Ajustes } from './pages/Ajustes.jsx'
+import { Mensajes } from './pages/Mensajes.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -101,6 +102,7 @@ export const router = createBrowserRouter([
       // ── Usuario ────────────────────────────────────────────
       protect('perfil',   <Placeholder title="Mi Perfil" />),
       protect('ajustes',  <Ajustes />),
+      protect('mensajes', <Mensajes />),
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

@@ -4,10 +4,11 @@ import {
   Activity, LayoutDashboard, Settings, Search, LogOut,
   User, UserPlus, BedDouble, HeartPulse, FileText, Pill,
   Shield, BarChart2, Calendar, Loader2, Clock, Receipt, CalendarDays,
-  ChevronDown, Stethoscope, ClipboardList, Building2,
+  ChevronDown, Stethoscope, ClipboardList, Building2, MessageSquare,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { hasAccess } from '../config/employeePermissions.js'
+import { getTotalNoLeidos } from '../../services/mensajeriaService'
 
 const ALL_NAV_ITEMS = [
   { name: 'Dashboard',          href: '/empleado',                   icon: LayoutDashboard, route: 'dashboard' },
@@ -24,6 +25,7 @@ const ALL_NAV_ITEMS = [
   { name: 'Turnos',             href: '/empleado/turnos',            icon: Calendar,        route: 'turnos' },
   { name: 'Reportes',           href: '/empleado/reportes',          icon: BarChart2,       route: 'reportes' },
   { name: 'Agenda Médica',      href: '/empleado/agenda-medica',     icon: CalendarDays,    route: 'agenda-medica' },
+  { name: 'Mensajes',           href: '/empleado/mensajes',          icon: MessageSquare,   route: 'mensajes' },
 ]
 
 // Agrupamos los ítems en secciones temáticas y colapsables, en vez de una
@@ -31,7 +33,7 @@ const ALL_NAV_ITEMS = [
 // muchos permisos (admin/recepcionista), y roles con pocos ítems (enfermero,
 // farmacia) simplemente no muestran las secciones vacías.
 const SECTIONS = [
-  { key: 'principal', label: null,                icon: null,         routes: ['dashboard'] },
+  { key: 'principal', label: null,                icon: null,         routes: ['dashboard', 'mensajes'] },
   { key: 'clinico',   label: 'Clínico',            icon: Stethoscope,  routes: ['triaje', 'camas', 'historial', 'farmacia'] },
   { key: 'pacientes', label: 'Pacientes',          icon: ClipboardList, routes: ['registro', 'cobertura', 'cola-espera', 'facturacion', 'historial-admin'] },
   { key: 'gestion',   label: 'Administración',     icon: Building2,    routes: ['gestion-empleados', 'turnos', 'reportes', 'agenda-medica'] },
