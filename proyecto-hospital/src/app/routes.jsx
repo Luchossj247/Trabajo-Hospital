@@ -28,6 +28,7 @@ import { ControlCamas }  from './pages/ControlCamas.jsx'
 import { Farmacia }      from './pages/Farmacia.jsx'
 import { HistorialMedico } from './pages/HistorialMedico.jsx'
 import { Reportes } from './pages/Reportes.jsx'
+import { Ajustes } from './pages/Ajustes.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -99,7 +100,7 @@ export const router = createBrowserRouter([
 
       // ── Usuario ────────────────────────────────────────────
       protect('perfil',   <Placeholder title="Mi Perfil" />),
-      protect('ajustes',  <Placeholder title="Configuración" />),
+      protect('ajustes',  <Ajustes />),
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

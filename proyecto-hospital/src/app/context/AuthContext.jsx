@@ -11,7 +11,7 @@ export function AuthProvider({ children }) {
   const loadPerfil = async (userId) => {
     const { data, error } = await supabase
       .from('usuario')
-      .select('id, nombre, apellido, rol, activo')
+      .select('id, nombre, apellido, email, rol, activo')
       .eq('id', userId)
       .single()
 
@@ -61,8 +61,19 @@ export function AuthProvider({ children }) {
     setPerfil(null)
   }
 
+  // Vuelve a traer el perfil del usuario actual desde la tabla `usuario`.
+  // Se usa después de editar datos propios (ej. desde Ajustes) para que
+  // el nombre/rol mostrado en el sidebar y el resto de la app quede al día
+  // sin necesidad de recargar la página.
+  const refreshPerfil = async () => {
+    if (!session?.user) return null
+    const p = await loadPerfil(session.user.id)
+    setPerfil(p)
+    return p
+  }
+
   return (
-    <AuthContext.Provider value={{ session, perfil, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, perfil, loading, signIn, signOut, refreshPerfil }}>
       {children}
     </AuthContext.Provider>
   )
