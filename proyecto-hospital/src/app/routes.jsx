@@ -8,6 +8,9 @@ import { LoginEmpleado } from './pages/LoginEmpleado.jsx'
 // Dashboards
 import { DashboardAdmin } from './pages/dashboards/DashboardAdmin.jsx'
 import { ReceptionistDashboard } from './pages/dashboards/ReceptionistDashboard.jsx'
+import { DashboardDoctor } from './pages/dashboards/DashboardDoctor.jsx'
+import { DashboardEnfermero } from './pages/dashboards/DashboardEnfermero.jsx'
+import { DashboardFarmacia } from './pages/dashboards/DashboardFarmacia.jsx'
 
 // Pages
 import { ListadoPacientes } from './pages/ListadoPaciente.jsx'
@@ -24,6 +27,7 @@ import { Triaje }        from './pages/Triaje.jsx'
 import { ControlCamas }  from './pages/ControlCamas.jsx'
 import { Farmacia }      from './pages/Farmacia.jsx'
 import { HistorialMedico } from './pages/HistorialMedico.jsx'
+import { Reportes } from './pages/Reportes.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -40,6 +44,9 @@ function EmployeeDashboard() {
   switch (perfil?.rol) {
     case 'administrador':  return <DashboardAdmin />
     case 'recepcionista':  return <ReceptionistDashboard />
+    case 'medico':         return <DashboardDoctor />
+    case 'enfermero':      return <DashboardEnfermero />
+    case 'farmacia':       return <DashboardFarmacia />
     default:               return <Placeholder title="Dashboard" />
   }
 }
@@ -85,7 +92,7 @@ export const router = createBrowserRouter([
 
       // ── Admin-only ─────────────────────────────────────────
       protect('gestion-empleados', <GestionEmpleados />),
-      protect('reportes',          <Placeholder title="Reportes" />),
+      protect('reportes',          <Reportes />),
       protect('turnos', <Turnos />),
       protect('agenda-medica', <GestionAgenda />),
 
