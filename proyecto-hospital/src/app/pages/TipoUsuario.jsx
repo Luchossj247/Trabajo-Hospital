@@ -51,13 +51,12 @@ export function TipoUsuario() {
 
           {/* Paciente */}
           <button
-            onClick={() => navigate('/')}
-            className="group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-[#ACEC00] text-left opacity-60 cursor-not-allowed"
-            disabled
+            onClick={() => navigate('/paciente-login')}
+            className="group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-[#ACEC00] text-left"
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-[#ACEC00] opacity-5 rounded-bl-full"></div>
             <div className="relative z-10">
-              <div className="w-16 h-16 bg-[#ACEC00] rounded-xl flex items-center justify-center mb-6">
+              <div className="w-16 h-16 bg-[#ACEC00] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                 <Users className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-2xl font-bold text-slate-900 mb-3">Paciente</h2>
@@ -65,15 +64,18 @@ export function TipoUsuario() {
                 Portal de acceso para pacientes con información médica personalizada
               </p>
               <ul className="space-y-2 mb-6">
-                {['Ver mi historial médico', 'Consultar citas y tratamientos', 'Resultados de exámenes', 'Recetas y medicamentos'].map((item) => (
+                {['Ver mi historial médico', 'Consultar mis turnos', 'Ver mis resultados y estudios'].map((item) => (
                   <li key={item} className="flex items-center text-sm text-slate-600">
                     <div className="w-1.5 h-1.5 bg-[#013FF6] rounded-full mr-2"></div>
                     {item}
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center text-[#ACEC00] font-semibold">
-                Próximamente disponible
+              <div className="flex items-center text-[#ACEC00] font-semibold group-hover:translate-x-2 transition-transform duration-300">
+                Ingresar al portal
+                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
             </div>
           </button>

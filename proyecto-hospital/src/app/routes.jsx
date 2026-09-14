@@ -30,6 +30,11 @@ import { HistorialMedico } from './pages/HistorialMedico.jsx'
 import { Reportes } from './pages/Reportes.jsx'
 import { Ajustes } from './pages/Ajustes.jsx'
 import { Mensajes } from './pages/Mensajes.jsx'
+import { PacienteLogin } from './pages/PacienteLogin.jsx'
+import { PacienteLayout } from './components/PacienteLayout.jsx'
+import { PacienteHistorial } from './pages/PacienteHistorial.jsx'
+import { PacienteTurnos } from './pages/PacienteTurnos.jsx'
+import { PacienteResultados } from './pages/PacienteResultados.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -67,6 +72,17 @@ const protect = (route, element, requiredRoute) => ({
 export const router = createBrowserRouter([
   { path: '/', Component: TipoUsuario },
   { path: '/empleado-login', Component: LoginEmpleado },
+  { path: '/paciente-login', Component: PacienteLogin },
+  {
+    path: '/paciente',
+    Component: PacienteLayout,
+    children: [
+      { index: true, element: <Navigate to="historial" replace /> },
+      { path: 'historial',  Component: PacienteHistorial },
+      { path: 'turnos',     Component: PacienteTurnos },
+      { path: 'resultados', Component: PacienteResultados },
+    ],
+  },
   {
     path: '/empleado',
     Component: MainLayout,
