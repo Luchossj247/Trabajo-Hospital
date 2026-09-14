@@ -63,6 +63,7 @@ export function MainLayout() {
   const navigate = useNavigate()
   const { session, perfil, loading, signOut } = useAuth()
   const [collapsed, setCollapsed] = useState(loadCollapsedState)
+  const [noLeidos, setNoLeidos] = useState(0)
 
   useEffect(() => {
     if (!loading && !session) {
@@ -73,6 +74,24 @@ export function MainLayout() {
   useEffect(() => {
     try { localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(collapsed)) } catch { /* noop */ }
   }, [collapsed])
+
+  // Contador de mensajes sin leer para el badge del ítem "Mensajes".
+  // Se refresca al entrar/salir de la pantalla de Mensajes y cada 30s.
+  useEffect(() => {
+    if (!perfil?.id) return
+    let activo = true
+
+    const fetchNoLeidos = async () => {
+      try {
+        const total = await getTotalNoLeidos(perfil.id)
+        if (activo) setNoLeidos(total)
+      } catch { /* noop */ }
+    }
+
+    fetchNoLeidos()
+    const interval = setInterval(fetchNoLeidos, 30_000)
+    return () => { activo = false; clearInterval(interval) }
+  }, [perfil?.id, location.pathname])
 
   if (loading || !perfil) {
     return (
@@ -85,7 +104,11 @@ export function MainLayout() {
     )
   }
 
-  const visibleItems = ALL_NAV_ITEMS.filter(item => hasAccess(perfil.rol, item.route))
+  const visibleItems = ALL_NAV_ITEMS
+    .filter(item => hasAccess(perfil.rol, item.route))
+    .map(item => item.route === 'mensajes' && noLeidos > 0
+      ? { ...item, alert: noLeidos > 9 ? '9+' : noLeidos }
+      : item)
   const visibleByRoute = Object.fromEntries(visibleItems.map(i => [i.route, i]))
 
   const sections = SECTIONS
