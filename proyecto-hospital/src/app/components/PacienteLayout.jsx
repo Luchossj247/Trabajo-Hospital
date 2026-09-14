@@ -1,12 +1,13 @@
 import { useEffect } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Activity, FileText, Calendar, FlaskConical, LogOut, User } from 'lucide-react'
+import { Activity, FileText, Calendar, CalendarPlus, FlaskConical, LogOut, User } from 'lucide-react'
 import { usePacienteAuth } from '../context/PacienteAuthContext'
 
 const NAV_ITEMS = [
-  { name: 'Mi Historial',   href: '/paciente/historial',  icon: FileText },
-  { name: 'Mis Turnos',     href: '/paciente/turnos',     icon: Calendar },
-  { name: 'Mis Resultados', href: '/paciente/resultados', icon: FlaskConical },
+  { name: 'Mi Historial',    href: '/paciente/historial',        icon: FileText },
+  { name: 'Reservar Turno',  href: '/paciente/reservar-turno',   icon: CalendarPlus },
+  { name: 'Mis Turnos',      href: '/paciente/turnos',           icon: Calendar },
+  { name: 'Mis Resultados',  href: '/paciente/resultados',       icon: FlaskConical },
 ]
 
 export function PacienteLayout() {

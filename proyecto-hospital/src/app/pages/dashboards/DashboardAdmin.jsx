@@ -52,19 +52,31 @@ export function DashboardAdmin() {
     setLoading(true)
     try {
       // ✅ Tablas correctas: paciente, usuario, cama
-      const [patientsRes, employeesRes, bedsRes] = await Promise.all([
+      const [patientsRes, employeesRes, bedsRes, guardiaRes] = await Promise.all([
         supabase.from('paciente').select('*').order('createdAt', { ascending: false }),
         supabase.from('usuario').select('*').order('createdAt', { ascending: false }),
         supabase.from('cama').select('*'),
+        supabase.from('guardia').select('id, ingresoAt'),
       ])
 
       const patients = patientsRes.data || []
       const emps = employeesRes.data || []
       const bedList = bedsRes.data || []
+      const guardias = guardiaRes.data || []
 
       // ✅ Columna correcta: createdAt (no created_at)
+      // "Nuevos registros hoy": pacientes cuya FICHA se creó hoy (por Recepción
+      // o por auto-registro desde el Portal Paciente) — no implica que hayan
+      // llegado físicamente al hospital.
       const today = new Date().toDateString()
       const todayPatients = patients.filter(p => new Date(p.createdAt).toDateString() === today)
+
+      // "Ingresados hoy": pacientes que efectivamente entraron a la guardia hoy
+      // (guardia.ingresoAt), independientemente de cuándo se haya creado su ficha.
+      // Antes esto se aproximaba con paciente.createdAt, pero eso dejó de ser
+      // válido desde que un paciente puede auto-registrarse desde su casa sin
+      // haber llegado al hospital todavía.
+      const ingresadosHoy = guardias.filter(g => g.ingresoAt && new Date(g.ingresoAt).toDateString() === today)
 
       // ✅ Estados correctos de cama: 'disponible' y 'ocupada'
       const freeBeds = bedList.filter(b => b.estado === 'disponible').length
@@ -73,6 +85,7 @@ export function DashboardAdmin() {
       setStats({
         totalPatients: patients.length,
         todayPatients: todayPatients.length,
+        ingresadosHoy: ingresadosHoy.length,
         totalEmployees: emps.length,
         // ✅ Campo correcto: activo (no active)
         activeEmployees: emps.filter(e => e.activo !== false).length,
@@ -88,7 +101,7 @@ export function DashboardAdmin() {
       console.error('Error fetching dashboard data:', err)
       // Fallback stats so the UI is never empty
       setStats({
-        totalPatients: 142, todayPatients: 18, totalEmployees: 24,
+        totalPatients: 142, todayPatients: 18, ingresadosHoy: 12, totalEmployees: 24,
         activeEmployees: 22, totalBeds: 46, freeBeds: 17, occupiedBeds: 27, occupancyPct: 59,
       })
       setRecentPatients(DEMO_PATIENTS)
@@ -104,10 +117,10 @@ export function DashboardAdmin() {
 
   const statItems = stats
     ? [
-        { label: 'Pacientes Totales',    value: stats.totalPatients,    sub: `+${stats.todayPatients} hoy`,          icon: Users,       accent: '#013FF6' },
+        { label: 'Pacientes Totales',    value: stats.totalPatients,    sub: `+${stats.todayPatients} nuevos registros hoy`, icon: Users,       accent: '#013FF6' },
         { label: 'Empleados Activos',    value: stats.activeEmployees,  sub: `${stats.totalEmployees} registrados`,  icon: Shield,      accent: '#ACEC00' },
         { label: 'Camas Disponibles',   value: stats.freeBeds,         sub: `${stats.occupancyPct}% ocupación`,     icon: BedDouble,   accent: '#013FF6' },
-        { label: 'Pacientes Hoy',       value: stats.todayPatients,    sub: 'ingresados hoy',                       icon: UserPlus,    accent: '#ACEC00' },
+        { label: 'Pacientes Hoy',       value: stats.ingresadosHoy,    sub: 'ingresados a guardia hoy',              icon: UserPlus,    accent: '#ACEC00' },
       ]
     : Array(4).fill(null)
 

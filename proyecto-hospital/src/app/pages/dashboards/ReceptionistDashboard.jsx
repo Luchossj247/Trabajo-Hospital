@@ -53,8 +53,6 @@ function getGuardiaActivaHoy(guardias, todayStr) {
 // ── Modal paciente ─────────────────────────────────────────────
 function ModalPaciente({ paciente, onClose, todayStr }) {
   const initials = `${paciente.nombre?.[0] ?? ''}${paciente.apellido?.[0] ?? ''}`.toUpperCase()
-  const wait = waitMinutes(paciente.createdAt)
-  const isLong = paciente.createdAt && (Date.now() - new Date(paciente.createdAt)) > 60 * 60 * 1000
   const cobertura = paciente.coberturaMedica?.[0]
   const guardias = paciente.guardia || []
 
@@ -67,6 +65,12 @@ function ModalPaciente({ paciente, onClose, todayStr }) {
   }
 
   const guardiaActiva = getGuardiaActivaHoy(guardias, todayStr)
+
+  // "Llegada y espera" se basa en el ingreso real a guardia, no en cuándo
+  // se creó el registro del paciente — un paciente puede auto-registrarse
+  // desde el Portal días antes de llegar físicamente al hospital.
+  const wait = guardiaActiva?.ingresoAt ? waitMinutes(guardiaActiva.ingresoAt) : null
+  const isLong = guardiaActiva?.ingresoAt && (Date.now() - new Date(guardiaActiva.ingresoAt)) > 60 * 60 * 1000
 
   return (
     <div
@@ -149,24 +153,26 @@ function ModalPaciente({ paciente, onClose, todayStr }) {
             </div>
           </section>
 
-          {/* Tiempo de espera */}
-          <section>
-            <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-              <Clock className="h-3.5 w-3.5" /> Llegada y espera
-            </h3>
-            <div className="flex gap-3">
-              <div className="flex-1 bg-slate-50 rounded-xl p-3">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hora de llegada</p>
-                <p className="text-sm font-semibold text-slate-800 mt-0.5">{fmtHour(paciente.createdAt)}</p>
+          {/* Tiempo de espera — solo si el paciente efectivamente llegó a guardia hoy */}
+          {guardiaActiva && (
+            <section>
+              <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                <Clock className="h-3.5 w-3.5" /> Llegada y espera
+              </h3>
+              <div className="flex gap-3">
+                <div className="flex-1 bg-slate-50 rounded-xl p-3">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hora de llegada</p>
+                  <p className="text-sm font-semibold text-slate-800 mt-0.5">{fmtHour(guardiaActiva.ingresoAt)}</p>
+                </div>
+                <div className={`flex-1 rounded-xl p-3 ${isLong ? 'bg-red-50' : 'bg-slate-50'}`}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tiempo en espera</p>
+                  <p className={`text-sm font-semibold mt-0.5 ${isLong ? 'text-red-500' : 'text-slate-800'}`}>
+                    {wait || '—'}{isLong && ' ⚠️'}
+                  </p>
+                </div>
               </div>
-              <div className={`flex-1 rounded-xl p-3 ${isLong ? 'bg-red-50' : 'bg-slate-50'}`}>
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tiempo en espera</p>
-                <p className={`text-sm font-semibold mt-0.5 ${isLong ? 'text-red-500' : 'text-slate-800'}`}>
-                  {wait || '—'}{isLong && ' ⚠️'}
-                </p>
-              </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           {/* Cobertura */}
           <section>
@@ -465,11 +471,16 @@ export function ReceptionistDashboard() {
             {filtered.map((p, idx) => {
               const nombre   = `${p.nombre} ${p.apellido}`
               const initials = `${p.nombre?.[0] ?? ''}${p.apellido?.[0] ?? ''}`.toUpperCase()
-              const wait     = waitMinutes(p.createdAt)
-              const isLong   = p.createdAt && (Date.now() - new Date(p.createdAt)) > 60 * 60 * 1000
 
               // Solo considerar guardia activa de hoy
               const guardiaActiva = getGuardiaActivaHoy(p.guardia, todayStr)
+
+              // Igual que en el modal: la hora y el tiempo de espera se basan
+              // en el ingreso real a guardia, no en cuándo se creó la ficha
+              // del paciente (que puede ser un auto-registro desde el Portal
+              // sin que haya llegado todavía).
+              const wait   = guardiaActiva?.ingresoAt ? waitMinutes(guardiaActiva.ingresoAt) : null
+              const isLong = guardiaActiva?.ingresoAt && (Date.now() - new Date(guardiaActiva.ingresoAt)) > 60 * 60 * 1000
 
               const ESTADO_PILL = {
                 en_espera:   { label: 'En espera',   bg: '#fef3c7', color: '#92400e' },
@@ -509,7 +520,9 @@ export function ReceptionistDashboard() {
                   )}
 
                   <div className="hidden md:flex flex-col items-end flex-shrink-0 text-right">
-                    <span className="text-xs font-semibold text-slate-700">{fmtHour(p.createdAt)}</span>
+                    <span className="text-xs font-semibold text-slate-700">
+                      {guardiaActiva ? fmtHour(guardiaActiva.ingresoAt) : '—'}
+                    </span>
                     <span className={`text-[10px] font-medium ${isLong ? 'text-red-400' : 'text-slate-400'}`}>
                       {wait ? `Espera: ${wait}` : '—'}
                     </span>

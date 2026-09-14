@@ -79,20 +79,24 @@ function ModalCobertura({ cobertura, onClose, onSave }) {
     setSaving(true)
     setError(null)
     try {
-      const { data, error } = await supabase
-        .from('coberturaMedica')
-        .update({
-          estadoCobertura: form.estadoCobertura,
-          obraSocial:      form.obraSocial || null,
-          numeroAfiliado:  form.numeroAfiliado || null,
-          observaciones:   form.observaciones  || null,
-        })
-        .eq('id', cobertura.id)
-        .select('*, paciente(nombre, apellido, dni)')
-        .single()
+      const payload = {
+        estadoCobertura: form.estadoCobertura,
+        obraSocial:      form.obraSocial || null,
+        numeroAfiliado:  form.numeroAfiliado || null,
+        observaciones:   form.observaciones  || null,
+      }
+
+      // Si el paciente todavía no tiene ninguna fila de coberturaMedica
+      // (ej: se auto-registró desde el Portal Paciente sin cargar obra
+      // social), este es un registro "virtual" sin id — hay que crearlo.
+      const query = cobertura.id
+        ? supabase.from('coberturaMedica').update(payload).eq('id', cobertura.id)
+        : supabase.from('coberturaMedica').insert([{ ...payload, pacienteId: cobertura.pacienteId }])
+
+      const { data, error } = await query.select('*, paciente(nombre, apellido, dni)').single()
 
       if (error) throw error
-      onSave(data)
+      onSave(data, cobertura.id)
       onClose()
     } catch (err) {
       setError(err.message || 'Error al guardar')
@@ -220,13 +224,36 @@ export function VerificacionCobertura() {
     setLoading(true)
     setError(null)
     try {
+      // Antes se consultaba DESDE coberturaMedica, lo que dejaba afuera de
+      // esta pantalla a cualquier paciente sin ninguna fila todavía (ej:
+      // particulares sin obra social, o auto-registrados desde el Portal
+      // Paciente). Ahora se parte de paciente, y a los que no tengan
+      // cobertura cargada se les arma un registro "virtual" en estado
+      // pendiente para que también aparezcan y se puedan verificar.
       const { data, error } = await supabase
-        .from('coberturaMedica')
-        .select('*, paciente(nombre, apellido, dni)')
+        .from('paciente')
+        .select('id, nombre, apellido, dni, coberturaMedica(*)')
         .order('createdAt', { ascending: false })
 
       if (error) throw error
-      setCoberturas(data || [])
+
+      const normalizados = (data || []).map(p => {
+        const existente = p.coberturaMedica?.[0]
+        const paciente = { nombre: p.nombre, apellido: p.apellido, dni: p.dni }
+        return existente
+          ? { ...existente, paciente }
+          : {
+              id: null,
+              pacienteId: p.id,
+              estadoCobertura: 'pendiente',
+              obraSocial: null,
+              numeroAfiliado: null,
+              observaciones: null,
+              paciente,
+            }
+      })
+
+      setCoberturas(normalizados)
     } catch (err) {
       setError(err.message || 'Error al cargar coberturas')
     } finally {
@@ -236,8 +263,11 @@ export function VerificacionCobertura() {
 
   useEffect(() => { fetchCoberturas() }, [fetchCoberturas])
 
-  const handleSave = (updated) => {
-    setCoberturas(prev => prev.map(c => c.id === updated.id ? updated : c))
+  const handleSave = (updated, idAnterior) => {
+    setCoberturas(prev => prev.map(c => {
+      const esElMismo = idAnterior ? c.id === idAnterior : c.pacienteId === updated.pacienteId
+      return esElMismo ? updated : c
+    }))
   }
 
   const filtered = coberturas.filter(c => {
@@ -346,7 +376,7 @@ export function VerificacionCobertura() {
               const Icon = estado.icon
               return (
                 <div
-                  key={c.id}
+                  key={c.id || c.pacienteId}
                   className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition-shadow"
                 >
                   {/* Avatar */}

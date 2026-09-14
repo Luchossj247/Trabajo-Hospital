@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Calendar, Loader2, Clock, User } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Calendar, Loader2, Clock, User, CalendarPlus } from 'lucide-react'
 import { getTurnos } from '../../services/turnoService'
 import { usePacienteAuth } from '../context/PacienteAuthContext'
 
@@ -55,11 +56,17 @@ export function PacienteTurnos() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
-          <Calendar className="h-8 w-8 text-[#013FF6]" /> Mis Turnos
-        </h1>
-        <p className="text-slate-500 mt-1">Para reservar o cambiar un turno, comunicate con recepción</p>
+      <div className="flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+            <Calendar className="h-8 w-8 text-[#013FF6]" /> Mis Turnos
+          </h1>
+          <p className="text-slate-500 mt-1">Tus turnos programados y tu historial</p>
+        </div>
+        <Link to="/paciente/reservar-turno"
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#013FF6] text-white text-sm font-semibold rounded-xl hover:bg-[#0033cc] shadow-lg shadow-[#013FF6]/20">
+          <CalendarPlus className="h-4 w-4" /> Reservar turno
+        </Link>
       </div>
 
       {loading ? (

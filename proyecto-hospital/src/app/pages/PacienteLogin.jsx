@@ -26,7 +26,12 @@ export function PacienteLogin() {
       setPaciente(paciente)
       navigate('/paciente')
     } catch (err) {
-      setError(err.message || 'Error al acceder. Verificá tus datos.')
+      const msg = err.message || 'Error al acceder. Verificá tus datos.'
+      if (msg.includes('No encontramos')) {
+        setError('No encontramos ese DNI registrado. Si es tu primera vez, pedile a Recepción que te registre como paciente antes de ingresar al portal.')
+      } else {
+        setError(msg)
+      }
     } finally {
       setLoading(false)
     }
@@ -107,6 +112,16 @@ export function PacienteLogin() {
             <p className="text-xs text-slate-400 text-center mt-6">
               Tus datos deben coincidir con los registrados por el hospital. Si tenés problemas para acceder, contactá a recepción.
             </p>
+
+            <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+              <p className="text-sm text-slate-500">
+                ¿Primera vez y querés sacar un turno?{' '}
+                <button type="button" onClick={() => navigate('/paciente-registro')}
+                  className="font-semibold text-[#013FF6] hover:underline">
+                  Registrate acá
+                </button>
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -27,9 +27,34 @@ export async function getHistorialCompleto(pacienteId) {
       documentoClinico ( * )
     `)
     .eq('pacienteId', pacienteId)
-    .single()
+    .maybeSingle()
 
   if (error) throw error
+
+  // Auto-reparación: todo paciente debería tener un historialClinico (se crea
+  // automáticamente tanto en el alta por Recepción como en el auto-registro
+  // del Portal Paciente), pero por si falta —por ejemplo, pacientes creados
+  // antes de que esa lógica existiera—, se crea acá en vez de romper la
+  // pantalla del médico.
+  if (!data) {
+    const { data: nuevo, error: errCreate } = await supabase
+      .from('historialClinico')
+      .insert([{ pacienteId }])
+      .select(`*, atencionMedica ( * ), documentoClinico ( * )`)
+      .single()
+
+    if (errCreate) {
+      // Código 23505 = unique_violation: otra llamada (ej. el doble efecto
+      // de React StrictMode en desarrollo) ya creó el historial una fracción
+      // de segundo antes. No es un error real — se busca la fila que ya
+      // existe en vez de romper la pantalla.
+      if (errCreate.code === '23505') {
+        return getHistorialCompleto(pacienteId)
+      }
+      throw errCreate
+    }
+    return { ...nuevo, atencionMedica: [], documentoClinico: [] }
+  }
 
   // ordenar atenciones y documentos por fecha desc
   data.atencionMedica = (data.atencionMedica || []).sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
