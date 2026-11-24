@@ -7,7 +7,7 @@ export async function getColaGuardia() {
     .from('guardia')
     .select(`
       *,
-      paciente:pacienteId ( id, nombre, apellido, dni, fechaNacimiento ),
+      paciente:pacienteId ( id, nombre, apellido, dni, fechaNacimiento, alergias ),
       enfermero:enfermeroId ( id, nombre, apellido ),
       medico:medicoId ( id, nombre, apellido )
     `)
@@ -24,7 +24,7 @@ export async function getGuardiasCerradas(limit = 50) {
     .from('guardia')
     .select(`
       *,
-      paciente:pacienteId ( id, nombre, apellido, dni )
+      paciente:pacienteId ( id, nombre, apellido, dni, alergias )
     `)
     .in('estado', ['alta', 'derivado'])
     .order('egresoAt', { ascending: false })

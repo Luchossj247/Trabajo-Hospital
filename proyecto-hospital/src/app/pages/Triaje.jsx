@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext'
 import { BotonDocumento } from '../components/BotonDocumento'
 import { imprimirReceta } from '../../lib/plantillas'
 import { nombreDe } from '../../lib/documentos'
+import { conflictosAlergia } from '../../lib/alergias'
 
 // ── Niveles de triaje (estilo ESI/Manchester) ─────────────────────
 const NIVELES = [
@@ -361,6 +362,7 @@ function ModalComentarios({ guardia, onClose, usuarioId }) {
 // ── Modal: recetar medicamentos (solo si el paciente está en_atencion) ────
 function ModalRecetar({ guardia, medicoId, medico, onClose, onCreated }) {
   const [creada, setCreada] = useState(null)
+  const [confirmaAlergia, setConfirmaAlergia] = useState(false)
   const [items, setItems] = useState([{ medicamentoNombre: '', dosis: '', frecuencia: '', indicaciones: '' }])
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
@@ -371,9 +373,12 @@ function ModalRecetar({ guardia, medicoId, medico, onClose, onCreated }) {
   const addItem = () => setItems(prev => [...prev, { medicamentoNombre: '', dosis: '', frecuencia: '', indicaciones: '' }])
   const removeItem = (i) => setItems(prev => prev.filter((_, idx) => idx !== i))
 
+  const conflictos = conflictosAlergia(guardia.paciente?.alergias, items.map(it => it.medicamentoNombre))
+
   const handleSave = async () => {
     const validos = items.filter(it => it.medicamentoNombre.trim())
     if (validos.length === 0) return setError('Agregá al menos un medicamento con nombre.')
+    if (conflictos.length > 0 && !confirmaAlergia) return setError('Confirmá que revisaste la alergia del paciente antes de enviar.')
     setSaving(true); setError('')
     try {
       const receta = await crearReceta({ guardiaId: guardia.id, medicoId, items: validos })
@@ -424,6 +429,24 @@ function ModalRecetar({ guardia, medicoId, medico, onClose, onCreated }) {
         </div>
 
         <div className="p-6 space-y-4">
+          {guardia.paciente?.alergias && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <p><span className="font-bold">Alergias registradas:</span> {guardia.paciente.alergias}</p>
+            </div>
+          )}
+          {conflictos.length > 0 && (
+            <div className="p-3 bg-red-50 border border-red-300 rounded-xl text-sm text-red-700 space-y-1.5">
+              <p className="font-bold flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Posible conflicto con alergias</p>
+              <ul className="list-disc pl-5 text-xs">
+                {conflictos.map((c, i) => <li key={i}><span className="font-semibold">{c.medicamento}</span>: {c.motivo}.</li>)}
+              </ul>
+              <label className="flex items-center gap-2 text-xs font-semibold pt-1">
+                <input type="checkbox" checked={confirmaAlergia} onChange={e => { setConfirmaAlergia(e.target.checked); setError('') }} />
+                Revisé la alergia y confirmo que quiero recetarlo igual
+              </label>
+            </div>
+          )}
           {items.map((it, i) => (
             <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2 relative">
               {items.length > 1 && (

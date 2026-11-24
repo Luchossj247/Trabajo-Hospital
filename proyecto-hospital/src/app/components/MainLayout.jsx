@@ -8,6 +8,7 @@ import {
   CalendarClock, ScrollText,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { CampanaNotificaciones } from './CampanaNotificaciones'
 import { hasAccess } from '../config/employeePermissions.js'
 import { getTotalNoLeidos } from '../../services/mensajeriaService'
 
@@ -243,6 +244,7 @@ export function MainLayout() {
               />
             </div>
           </div>
+          <CampanaNotificaciones perfil={perfil} />
         </header>
 
         {/* Content */}
