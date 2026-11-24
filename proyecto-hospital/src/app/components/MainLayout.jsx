@@ -5,6 +5,7 @@ import {
   User, UserPlus, BedDouble, HeartPulse, FileText, Pill,
   Shield, BarChart2, Calendar, Loader2, Clock, Receipt, CalendarDays,
   ChevronDown, Stethoscope, ClipboardList, Building2, MessageSquare,
+  CalendarClock, ScrollText,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { hasAccess } from '../config/employeePermissions.js'
@@ -26,6 +27,8 @@ const ALL_NAV_ITEMS = [
   { name: 'Reportes',           href: '/empleado/reportes',          icon: BarChart2,       route: 'reportes' },
   { name: 'Agenda Médica',      href: '/empleado/agenda-medica',     icon: CalendarDays,    route: 'agenda-medica' },
   { name: 'Mensajes',           href: '/empleado/mensajes',          icon: MessageSquare,   route: 'mensajes' },
+  { name: 'Horarios',           href: '/empleado/horarios',          icon: CalendarClock,   route: 'horarios' },
+  { name: 'Auditoría',          href: '/empleado/auditoria',         icon: ScrollText,      route: 'auditoria' },
 ]
 
 // Agrupamos los ítems en secciones temáticas y colapsables, en vez de una
@@ -33,10 +36,10 @@ const ALL_NAV_ITEMS = [
 // muchos permisos (admin/recepcionista), y roles con pocos ítems (enfermero,
 // farmacia) simplemente no muestran las secciones vacías.
 const SECTIONS = [
-  { key: 'principal', label: null,                icon: null,         routes: ['dashboard', 'mensajes'] },
+  { key: 'principal', label: null,                icon: null,         routes: ['dashboard', 'mensajes', 'horarios'] },
   { key: 'clinico',   label: 'Clínico',            icon: Stethoscope,  routes: ['triaje', 'camas', 'historial', 'farmacia'] },
   { key: 'pacientes', label: 'Pacientes',          icon: ClipboardList, routes: ['registro', 'cobertura', 'cola-espera', 'facturacion', 'historial-admin'] },
-  { key: 'gestion',   label: 'Administración',     icon: Building2,    routes: ['gestion-empleados', 'turnos', 'reportes', 'agenda-medica'] },
+  { key: 'gestion',   label: 'Administración',     icon: Building2,    routes: ['gestion-empleados', 'turnos', 'reportes', 'agenda-medica', 'auditoria'] },
 ]
 
 const ROL_LABELS = {
@@ -133,18 +136,19 @@ export function MainLayout() {
     return (
       <Link
         to={item.href}
-        className={`flex items-center px-3 py-2.5 rounded-xl text-sm transition-all group
+        aria-current={isActive ? 'page' : undefined}
+        className={`flex items-center pl-3 pr-3 py-3 rounded-xl text-[15px] border-l-4 transition-colors group
           ${isActive
-            ? 'bg-[#ACEC00] text-[#013FF6] font-bold shadow-sm'
-            : 'text-white/75 font-medium hover:bg-white/10 hover:text-white'}`}
+            ? 'bg-white text-[#0B2A8F] font-bold border-[#ACEC00] shadow-sm'
+            : 'text-white font-medium border-transparent hover:bg-white/15'}`}
       >
         <Icon
-          className={`mr-3 flex-shrink-0 transition-colors ${isActive ? 'text-[#013FF6]' : 'text-white/60 group-hover:text-white'}`}
-          style={{ width: '1.05rem', height: '1.05rem' }}
+          className={`mr-3 flex-shrink-0 ${isActive ? 'text-[#0B2A8F]' : 'text-white'}`}
+          style={{ width: '1.25rem', height: '1.25rem' }}
         />
         <span className="flex-1 leading-tight truncate">{item.name}</span>
         {item.alert && (
-          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+          <span className="ml-auto flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-red-600 text-white text-[11px] font-bold">
             {item.alert}
           </span>
         )}
@@ -156,7 +160,7 @@ export function MainLayout() {
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 overflow-hidden font-sans">
 
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 bg-[#013FF6] flex flex-col shadow-xl z-20">
+      <aside className="w-64 flex-shrink-0 bg-[#0B2A8F] flex flex-col shadow-xl z-20">
 
         {/* Logo */}
         <div className="h-14 flex-shrink-0 flex items-center px-5 border-b border-white/10">
@@ -178,13 +182,13 @@ export function MainLayout() {
                   {section.label && (
                     <button
                       onClick={() => toggleSection(section.key)}
-                      className="w-full flex items-center gap-1.5 px-3 py-1.5 mb-0.5 text-white/40 hover:text-white/70 transition-colors"
+                      className="w-full flex items-center gap-1.5 px-3 py-1.5 mb-0.5 text-white/75 hover:text-white transition-colors"
                     >
-                      {section.icon && <section.icon className="h-3 w-3 flex-shrink-0" />}
-                      <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left">
+                      {section.icon && <section.icon className="h-4 w-4 flex-shrink-0" />}
+                      <span className="text-xs font-bold uppercase tracking-wider flex-1 text-left">
                         {section.label}
                       </span>
-                      <ChevronDown className={`h-3 w-3 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                      <ChevronDown className={`h-4 w-4 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
                     </button>
                   )}
                   {!isCollapsed && (
@@ -197,7 +201,7 @@ export function MainLayout() {
             })}
           </div>
           {/* Fade sutil al pie del nav para indicar que hay más contenido al scrollear */}
-          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[#013FF6] to-transparent" />
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[#0B2A8F] to-transparent" />
         </div>
 
         {/* Footer usuario */}
@@ -207,18 +211,18 @@ export function MainLayout() {
               <span className="text-xs font-black text-[#013FF6]">{initials}</span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white truncate">
+              <p className="text-sm font-semibold text-white truncate">
                 {perfil.nombre} {perfil.apellido}
               </p>
-              <p className="text-[10px] text-white/40 truncate">
+              <p className="text-xs text-white/80 truncate">
                 {ROL_LABELS[perfil.rol] || perfil.rol}
               </p>
             </div>
-            <Link to="/empleado/ajustes" title="Configuración" className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
-              <Settings className="h-3.5 w-3.5" />
+            <Link to="/empleado/ajustes" title="Configuración" className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors flex-shrink-0">
+              <Settings className="h-5 w-5" />
             </Link>
-            <button onClick={handleLogout} title="Salir" className="p-1.5 rounded-lg text-white/40 hover:text-red-300 hover:bg-white/10 transition-colors flex-shrink-0">
-              <LogOut className="h-3.5 w-3.5" />
+            <button onClick={handleLogout} title="Salir" className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors flex-shrink-0">
+              <LogOut className="h-5 w-5" />
             </button>
           </div>
         </div>

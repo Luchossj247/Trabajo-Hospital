@@ -11,19 +11,19 @@ const NAV_ITEMS = [
 ]
 
 export function PacienteLayout() {
-  const { paciente, logout } = usePacienteAuth()
+  const { paciente, loading, logout } = usePacienteAuth()
   const location = useLocation()
   const navigate  = useNavigate()
 
   // Sin "sesión" de paciente → al login del portal
   useEffect(() => {
-    if (!paciente) navigate('/paciente-login', { replace: true })
-  }, [paciente, navigate])
+    if (!loading && !paciente) navigate('/paciente-login', { replace: true })
+  }, [paciente, loading, navigate])
 
-  if (!paciente) return null
+  if (loading || !paciente) return null
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate('/')
   }
 
@@ -33,7 +33,7 @@ export function PacienteLayout() {
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 overflow-hidden font-sans">
 
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 bg-[#013FF6] flex flex-col shadow-xl z-20">
+      <aside className="w-64 flex-shrink-0 bg-[#0B2A8F] flex flex-col shadow-xl z-20">
         <div className="h-14 flex-shrink-0 flex items-center px-5 border-b border-white/10">
           <div className="h-7 w-7 bg-[#ACEC00] rounded-lg flex items-center justify-center mr-2.5 shadow-sm flex-shrink-0">
             <Activity className="h-4 w-4 text-[#013FF6]" strokeWidth={3} />
@@ -51,10 +51,11 @@ export function PacienteLayout() {
               <Link
                 key={item.href}
                 to={item.href}
-                className={`flex items-center px-3 py-2.5 rounded-xl text-sm transition-all group
-                  ${isActive ? 'bg-[#ACEC00] text-[#013FF6] font-bold shadow-sm' : 'text-white/75 font-medium hover:bg-white/10 hover:text-white'}`}
+                aria-current={isActive ? 'page' : undefined}
+                className={`flex items-center pl-3 pr-3 py-3 rounded-xl text-[15px] border-l-4 transition-colors group
+                  ${isActive ? 'bg-white text-[#0B2A8F] font-bold border-[#ACEC00] shadow-sm' : 'text-white font-medium border-transparent hover:bg-white/15'}`}
               >
-                <Icon className={`mr-3 h-4 w-4 flex-shrink-0 ${isActive ? 'text-[#013FF6]' : 'text-white/60 group-hover:text-white'}`} />
+                <Icon className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-[#0B2A8F]' : 'text-white'}`} />
                 {item.name}
               </Link>
             )
@@ -67,11 +68,11 @@ export function PacienteLayout() {
               <span className="text-xs font-black text-[#013FF6]">{initials}</span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white truncate">{paciente.nombre} {paciente.apellido}</p>
-              <p className="text-[10px] text-white/40 truncate">DNI {paciente.dni}</p>
+              <p className="text-sm font-semibold text-white truncate">{paciente.nombre} {paciente.apellido}</p>
+              <p className="text-xs text-white/80 truncate">DNI {paciente.dni}</p>
             </div>
-            <button onClick={handleLogout} title="Salir" className="p-1.5 rounded-lg text-white/40 hover:text-red-300 hover:bg-white/10 transition-colors flex-shrink-0">
-              <LogOut className="h-3.5 w-3.5" />
+            <button onClick={handleLogout} title="Salir" className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors flex-shrink-0">
+              <LogOut className="h-5 w-5" />
             </button>
           </div>
         </div>
