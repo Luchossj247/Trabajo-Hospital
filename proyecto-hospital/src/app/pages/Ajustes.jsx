@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Settings, User, KeyRound, Save, Loader2, CheckCircle2, AlertTriangle, X, Palette, Sun, Moon } from 'lucide-react'
-import { getTheme, setTheme } from '../../lib/theme'
+import { Settings, User, KeyRound, Save, Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { updateUsuario } from '../../services/usuarioService'
 import { useAuth } from '../context/AuthContext'
@@ -39,8 +38,6 @@ function SectionCard({ title, icon: Icon, children }) {
 export function Ajustes() {
   const { perfil, refreshPerfil } = useAuth()
   const [toast, setToast] = useState(null)
-  const [tema, setTemaState] = useState(getTheme)
-  const cambiarTema = (t) => { setTheme(t); setTemaState(t) }
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   // ── Datos personales ──────────────────────────────────────────
@@ -104,20 +101,6 @@ export function Ajustes() {
         </h1>
         <p className="text-slate-500 mt-1">Tus datos personales y seguridad de la cuenta</p>
       </div>
-
-      {/* ── Apariencia ───────────────────────────────────────── */}
-      <SectionCard title="Apariencia" icon={Palette}>
-        <div className="grid grid-cols-2 gap-3">
-          {[['light', 'Claro', Sun], ['dark', 'Oscuro', Moon]].map(([k, label, Icon]) => (
-            <button key={k} onClick={() => cambiarTema(k)}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition-all
-                ${tema === k ? 'border-[#013FF6] bg-[#013FF6]/10 text-[#013FF6]' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-              <Icon className="h-4 w-4" /> {label}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-slate-400 mt-3">Se recuerda en este navegador.</p>
-      </SectionCard>
 
       {/* ── Datos personales ─────────────────────────────────── */}
       <SectionCard title="Datos personales" icon={User}>
