@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, Loader2, Clock, User, CalendarPlus } from 'lucide-react'
+import { Calendar, Loader2, Clock, User, CalendarPlus, AlertCircle } from 'lucide-react'
 import { getTurnos } from '../../services/turnoService'
+import { cancelarMiTurno } from '../../services/portalPacienteService'
 import { usePacienteAuth } from '../context/PacienteAuthContext'
 import { BotonDocumento } from '../components/BotonDocumento'
 import { imprimirComprobanteTurno } from '../../lib/plantillas'
@@ -18,15 +19,25 @@ export function PacienteTurnos() {
   const { paciente } = usePacienteAuth()
   const [turnos, setTurnos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [confirmando, setConfirmando] = useState(null)   // id del turno a cancelar
+  const [cancelando, setCancelando] = useState(false)
+  const [errorCancel, setErrorCancel] = useState('')
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true)
-      try { setTurnos(await getTurnos({ pacienteId: paciente.id })) }
-      catch { setTurnos([]) }
-      finally { setLoading(false) }
-    })()
+  const cargar = useCallback(async () => {
+    setLoading(true)
+    try { setTurnos(await getTurnos({ pacienteId: paciente.id })) }
+    catch { setTurnos([]) }
+    finally { setLoading(false) }
   }, [paciente.id])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const cancelar = async (id) => {
+    setCancelando(true); setErrorCancel('')
+    try { await cancelarMiTurno(id); setConfirmando(null); await cargar() }
+    catch (err) { setErrorCancel(err.message || 'No se pudo cancelar el turno.') }
+    finally { setCancelando(false) }
+  }
 
   const hoy = new Date().toISOString().split('T')[0]
   const proximos = turnos.filter(t => t.fecha >= hoy && t.estado !== 'cancelado')
@@ -56,6 +67,20 @@ export function PacienteTurnos() {
           <BotonDocumento compact title="Descargar comprobante del turno"
             onGenerar={() => imprimirComprobanteTurno({ turno: { ...t, paciente } })} />
         )}
+        {['programado', 'confirmado'].includes(t.estado) && t.fecha >= hoy && (
+          confirmando === t.id ? (
+            <span className="flex items-center gap-1.5 flex-shrink-0">
+              <button onClick={() => cancelar(t.id)} disabled={cancelando}
+                className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60">
+                {cancelando ? '…' : 'Sí, cancelar'}
+              </button>
+              <button onClick={() => { setConfirmando(null); setErrorCancel('') }} className="text-[11px] font-semibold text-slate-500 hover:underline">No</button>
+            </span>
+          ) : (
+            <button onClick={() => { setConfirmando(t.id); setErrorCancel('') }}
+              className="text-[11px] font-semibold text-red-600 hover:underline flex-shrink-0">Cancelar</button>
+          )
+        )}
       </div>
     )
   }
@@ -81,6 +106,9 @@ export function PacienteTurnos() {
         <>
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <h3 className="text-sm font-bold text-slate-700 mb-2">Próximos turnos</h3>
+            {errorCancel && (
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-red-600 mb-2"><AlertCircle className="h-3.5 w-3.5" /> {errorCancel}</p>
+            )}
             {proximos.length === 0 ? (
               <p className="text-sm text-slate-400 py-4">No tenés turnos programados.</p>
             ) : (

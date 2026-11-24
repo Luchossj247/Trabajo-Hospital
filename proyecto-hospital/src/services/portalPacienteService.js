@@ -70,3 +70,10 @@ export async function actualizarMisDatos(pacienteId, { telefono, email, direccio
   if (error) throw new Error('No se pudieron guardar los cambios.')
   return data
 }
+
+
+// Cancela un turno propio (la base valida pertenencia, estado y 2 horas de anticipación).
+export async function cancelarMiTurno(turnoId) {
+  const { error } = await supabase.rpc('cancelar_mi_turno', { p_turno: turnoId })
+  if (error) throw new Error(error.message)
+}
