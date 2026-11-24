@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Permite usar la clase .dark en <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #0a0a0a;
@@ -47,3 +50,56 @@
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background-color: rgba(255, 255, 255, 0.4);
 }
+
+/* ── Modo oscuro ─────────────────────────────────────────────────────
+   Se remapean las superficies/textos neutros más usados (slate + white).
+   El azul de marca, el verde lima y los chips de color se mantienen. */
+.dark { color-scheme: dark; --background: #0b1220; --foreground: #e2e8f0; --border: rgba(255, 255, 255, 0.1); }
+
+.dark .bg-white            { background-color: #111a2e; }
+.dark .bg-slate-50         { background-color: #0b1220; }
+.dark .bg-slate-50\/70,
+.dark .bg-slate-50\/60    { background-color: rgba(15, 23, 42, 0.7); }
+.dark .bg-slate-100        { background-color: #1a2540; }
+.dark .bg-slate-200        { background-color: #243252; }
+.dark .from-slate-50       { --tw-gradient-from: #0b1220; }
+.dark .to-slate-100        { --tw-gradient-to: #111a2e; }
+
+.dark .text-slate-900,
+.dark .text-slate-800      { color: #f1f5f9; }
+.dark .text-slate-700      { color: #e2e8f0; }
+.dark .text-slate-600      { color: #cbd5e1; }
+.dark .text-slate-500      { color: #a3b1c6; }
+.dark .text-slate-400      { color: #8696ae; }
+.dark .text-slate-300      { color: #64748b; }
+
+.dark .border-slate-50,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300    { border-color: #26334f; }
+.dark .divide-slate-50 > :not(:last-child),
+.dark .divide-slate-100 > :not(:last-child) { border-color: #26334f; }
+
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-50\/70:hover { background-color: #17223b; }
+.dark .hover\:bg-slate-100:hover { background-color: #1f2b49; }
+.dark .hover\:bg-slate-200:hover { background-color: #2a3a5e; }
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #0e1729;
+  color: #e2e8f0;
+  border-color: #2b3a5a;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #64748b; }
+.dark input:disabled { background-color: #0b1220; color: #64748b; }
+
+/* Chips y avisos claros: texto legible sobre fondo oscuro */
+.dark .bg-red-50     { background-color: rgba(239, 68, 68, 0.12); }
+.dark .bg-amber-50   { background-color: rgba(245, 158, 11, 0.12); }
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
+.dark .bg-blue-50    { background-color: rgba(59, 130, 246, 0.12); }
+.dark .border-red-200   { border-color: rgba(239, 68, 68, 0.35); }
+.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.35); }
