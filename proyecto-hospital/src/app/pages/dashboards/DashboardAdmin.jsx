@@ -54,7 +54,8 @@ export function DashboardAdmin() {
       // ✅ Tablas correctas: paciente, usuario, cama
       const [patientsRes, employeesRes, bedsRes, guardiaRes] = await Promise.all([
         supabase.from('paciente').select('*').order('createdAt', { ascending: false }),
-        supabase.from('usuario').select('*').order('createdAt', { ascending: false }),
+        // Las cuentas del Portal Paciente también viven en `usuario` (rol 'paciente'); no son personal.
+        supabase.from('usuario').select('*').neq('rol', 'paciente').order('createdAt', { ascending: false }),
         supabase.from('cama').select('*'),
         supabase.from('guardia').select('id, ingresoAt'),
       ])
