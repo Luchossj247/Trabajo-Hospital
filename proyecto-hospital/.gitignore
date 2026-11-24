@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Secretos y archivos locales (NUNCA subir credenciales)
+.env
+.env.*
+!.env.example
+
+# Supabase CLI (estado local)
+supabase/.temp/
+supabase/.branches/
+
+# Builds
+release/
