@@ -163,12 +163,9 @@ export async function getSlotsDisponibles(medicoId, fecha) {
   if (agError) throw agError
   if (!agendas || agendas.length === 0) return []
 
+  // RPC que devuelve solo las horas ocupadas (sin datos de otros pacientes)
   const { data: turnosOcupados, error: tError } = await supabase
-    .from('turno')
-    .select('horaInicio, horaFin, id')
-    .eq('medicoId', medicoId)
-    .eq('fecha', fecha)
-    .neq('estado', 'cancelado')
+    .rpc('turnos_ocupados', { p_medico: medicoId, p_fecha: fecha })
 
   if (tError) throw tError
 
@@ -188,15 +185,11 @@ export async function getSlotsDisponibles(medicoId, fecha) {
       const finMin = hh * 60 + mm + slotMinutes
       const fin    = `${String(Math.floor(finMin/60)).padStart(2,'0')}:${String(finMin%60).padStart(2,'0')}`
 
-      const turnoExistente = (turnosOcupados || []).find(
-        t => normalize(t.horaInicio) === inicio
-      )
-
       slots.push({
         horaInicio: inicio,
         horaFin:    fin,
         disponible: !ocupadosSet.has(inicio),
-        turnoId:    turnoExistente?.id || null,
+        turnoId:    (turnosOcupados || []).find(t => normalize(t.horaInicio) === inicio)?.id || null,
       })
 
       mm += slotMinutes
@@ -216,5 +209,13 @@ export async function getMedicos() {
     .order('apellido')
 
   if (error) throw error
+  return data
+}
+// ── Puente turno → guardia (el paciente llegó a la clínica) ─────
+export async function pasarTurnoAGuardia(turnoId, { nivelTriage, medioIngreso = 'ambulatorio', enfermeroId = null }) {
+  const { data, error } = await supabase.rpc('turno_a_guardia', {
+    p_turno: turnoId, p_nivel: nivelTriage, p_medio: medioIngreso, p_enfermero: enfermeroId,
+  })
+  if (error) throw new Error(error.message)
   return data
 }

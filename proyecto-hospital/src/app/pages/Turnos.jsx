@@ -3,11 +3,11 @@ import {
   Calendar, ChevronLeft, ChevronRight, Plus, Search,
   Clock, User, Stethoscope, X, Save, Loader2,
   CheckCircle2, AlertCircle, XCircle, RefreshCw,
-  Edit2, Trash2, Phone, CalendarX,
+  Edit2, Trash2, Phone, CalendarX, Siren,
 } from 'lucide-react'
 import {
   getTurnosByRango, createTurno, updateTurno, cancelarTurno,
-  getSlotsDisponibles, getMedicos,
+  getSlotsDisponibles, getMedicos, pasarTurnoAGuardia,
 } from '../../services/turnoService'
 import { searchPacientes } from '../../services/pacienteService'
 import { useAuth } from '../context/AuthContext'
@@ -459,8 +459,80 @@ function ModalCancelar({ turno, onClose, onConfirm }) {
   )
 }
 
+// ── Modal Pasar a Guardia (el paciente llegó) ────────────────
+const NIVELES_TRIAGE = [
+  { n: 1, label: 'Resucitación', color: '#dc2626' },
+  { n: 2, label: 'Emergencia',   color: '#ea580c' },
+  { n: 3, label: 'Urgencia',     color: '#ca8a04' },
+  { n: 4, label: 'Menor',        color: '#16a34a' },
+  { n: 5, label: 'No urgente',   color: '#2563eb' },
+]
+
+function ModalPasarGuardia({ turno, onClose, onConfirm }) {
+  const [nivel, setNivel]   = useState(3)
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  const handleConfirm = async () => {
+    setSaving(true); setError('')
+    try {
+      await onConfirm(turno, nivel)
+      onClose()
+    } catch (err) {
+      setError(err.message || 'No se pudo pasar a guardia.')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+            <Siren className="h-5 w-5 text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Pasar a guardia</h2>
+            <p className="text-xs text-slate-400">
+              {turno.paciente?.nombre} {turno.paciente?.apellido} — turno {turno.horaInicio?.slice(0,5)}
+            </p>
+          </div>
+        </div>
+
+        <label className="block text-sm font-semibold text-slate-700 mb-2">Nivel de triaje inicial</label>
+        <div className="grid grid-cols-5 gap-1.5">
+          {NIVELES_TRIAGE.map(n => (
+            <button key={n.n} onClick={() => setNivel(n.n)} title={n.label}
+              className={`py-2 rounded-lg text-sm font-extrabold border-2 transition-all
+                ${nivel === n.n ? 'text-white border-transparent' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+              style={nivel === n.n ? { backgroundColor: n.color } : {}}>
+              {n.n}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-slate-400 mt-2">
+          {NIVELES_TRIAGE.find(n => n.n === nivel)?.label}. Enfermería puede ajustarlo luego en Triaje.
+        </p>
+
+        {error && (
+          <div className="mt-3 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" /> {error}
+          </div>
+        )}
+
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">Volver</button>
+          <button onClick={handleConfirm} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 flex items-center justify-center gap-2 disabled:opacity-60">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Siren className="h-4 w-4" />} Pasar a guardia
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Tarjeta de turno ──────────────────────────────────────────
-function TurnoCard({ turno, onEdit, onCancelar }) {
+function TurnoCard({ turno, onEdit, onCancelar, onPasarGuardia }) {
   const est = ESTADO_CONFIG[turno.estado] || ESTADO_CONFIG.programado
   const cancelable = ['programado','confirmado'].includes(turno.estado)
 
@@ -513,6 +585,15 @@ function TurnoCard({ turno, onEdit, onCancelar }) {
         {/* Acciones */}
         {cancelable && (
           <div className="flex items-center gap-1 flex-shrink-0">
+            {turno.fecha === isoDate(new Date()) && (
+              <button
+                onClick={() => onPasarGuardia(turno)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                title="El paciente llegó: pasar a guardia"
+              >
+                <Siren className="h-4 w-4" />
+              </button>
+            )}
             <button
               onClick={() => onEdit(turno)}
               className="p-1.5 rounded-lg text-slate-400 hover:text-[#013FF6] hover:bg-[#013FF6]/10 transition-colors"
@@ -548,6 +629,7 @@ export function Turnos() {
   const [modalNuevo, setModalNuevo]     = useState(false)
   const [modalEdit, setModalEdit]       = useState(null)
   const [modalCancelar, setModalCancelar] = useState(null)
+  const [modalGuardia, setModalGuardia]   = useState(null)
   const [toast, setToast]               = useState(null)
 
   const showToast = (msg, type = 'success') => {
@@ -612,6 +694,12 @@ export function Turnos() {
       showToast(err.message || 'Error al cancelar.', 'error')
       throw err
     }
+  }
+
+  const handlePasarGuardia = async (turno, nivelTriage) => {
+    await pasarTurnoAGuardia(turno.id, { nivelTriage })
+    setTurnosRango(prev => prev.map(t => t.id === turno.id ? { ...t, estado: 'realizado' } : t))
+    showToast('Paciente derivado a la cola de guardia.')
   }
 
   const semanaLabel = () => {
@@ -799,6 +887,7 @@ export function Turnos() {
                         turno={t}
                         onEdit={setModalEdit}
                         onCancelar={setModalCancelar}
+                        onPasarGuardia={setModalGuardia}
                       />
                     ))
               }
@@ -825,6 +914,14 @@ export function Turnos() {
           onClose={() => setModalEdit(null)}
           onSave={handleEditTurno}
           currentUserId={perfil?.id}
+        />
+      )}
+
+      {modalGuardia && (
+        <ModalPasarGuardia
+          turno={modalGuardia}
+          onClose={() => setModalGuardia(null)}
+          onConfirm={handlePasarGuardia}
         />
       )}
 
