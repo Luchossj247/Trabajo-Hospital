@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Settings, User, KeyRound, Save, Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react'
+import { Settings, User, KeyRound, Save, Loader2, CheckCircle2, AlertTriangle, X, Palette, Sun, Moon } from 'lucide-react'
+import { getTheme, setTheme } from '../../lib/theme'
 import { supabase } from '../../lib/supabaseClient'
 import { updateUsuario } from '../../services/usuarioService'
 import { useAuth } from '../context/AuthContext'
+import { VerificacionDosPasos } from '../components/VerificacionDosPasos'
 
 const ROL_LABELS = {
   administrador: 'Administrador',
@@ -38,6 +40,8 @@ function SectionCard({ title, icon: Icon, children }) {
 export function Ajustes() {
   const { perfil, refreshPerfil } = useAuth()
   const [toast, setToast] = useState(null)
+  const [tema, setTemaState] = useState(getTheme)
+  const cambiarTema = (t) => { setTheme(t); setTemaState(t) }
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   // ── Datos personales ──────────────────────────────────────────
@@ -70,8 +74,8 @@ export function Ajustes() {
   const [savingPassword, setSavingPassword] = useState(false)
 
   const cambiarPassword = async () => {
-    if (passwordNueva.length < 6) {
-      return showToast('La nueva contraseña debe tener al menos 6 caracteres.', 'error')
+    if (passwordNueva.length < 8) {
+      return showToast('La nueva contraseña debe tener al menos 8 caracteres.', 'error')
     }
     if (passwordNueva !== passwordConfirmar) {
       return showToast('Las contraseñas no coinciden.', 'error')
@@ -101,6 +105,20 @@ export function Ajustes() {
         </h1>
         <p className="text-slate-500 mt-1">Tus datos personales y seguridad de la cuenta</p>
       </div>
+
+      {/* ── Apariencia ───────────────────────────────────────── */}
+      <SectionCard title="Apariencia" icon={Palette}>
+        <div className="grid grid-cols-2 gap-3">
+          {[['light', 'Claro', Sun], ['dark', 'Oscuro', Moon]].map(([k, label, Icon]) => (
+            <button key={k} onClick={() => cambiarTema(k)}
+              className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition-all
+                ${tema === k ? 'border-[#013FF6] bg-[#013FF6]/10 text-[#013FF6]' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+              <Icon className="h-4 w-4" /> {label}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-slate-400 mt-3">Se recuerda en este navegador.</p>
+      </SectionCard>
 
       {/* ── Datos personales ─────────────────────────────────── */}
       <SectionCard title="Datos personales" icon={User}>
@@ -153,7 +171,7 @@ export function Ajustes() {
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nueva contraseña</label>
             <input type="password" value={passwordNueva} onChange={e => setPasswordNueva(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
               className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
           </div>
           <div>
@@ -170,6 +188,8 @@ export function Ajustes() {
           </div>
         </div>
       </SectionCard>
+
+      <VerificacionDosPasos />
     </div>
   )
 }

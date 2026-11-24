@@ -7,13 +7,19 @@ import { Outlet } from 'react-router-dom'
 
 export function ProtectedRoute({ children, requiredRoute }) {
   const navigate              = useNavigate()
-  const { session, perfil, loading } = useAuth()
+  const { session, perfil, loading, mfaPendiente } = useAuth()
 
   useEffect(() => {
     if (loading) return
 
     // Sin sesión → al login
     if (!session) {
+      navigate('/empleado-login', { replace: true })
+      return
+    }
+
+    // Falta el segundo paso de verificación → volver al login
+    if (mfaPendiente) {
       navigate('/empleado-login', { replace: true })
       return
     }
@@ -25,7 +31,7 @@ export function ProtectedRoute({ children, requiredRoute }) {
     if (!hasAccess(perfil.rol, requiredRoute)) {
       navigate('/empleado', { replace: true })
     }
-  }, [session, perfil, loading, requiredRoute, navigate])
+  }, [session, perfil, loading, mfaPendiente, requiredRoute, navigate])
 
   // Cargando sesión
   if (loading) {

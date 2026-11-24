@@ -7,6 +7,15 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined)
   const [perfil,  setPerfil]  = useState(null)
   const [loading, setLoading] = useState(true)
+  const [mfaPendiente, setMfaPendiente] = useState(false)
+
+  // ¿La cuenta tiene verificación en dos pasos activa y esta sesión todavía no la completó?
+  const requiereMfa = async () => {
+    try {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      return data?.nextLevel === 'aal2' && data?.currentLevel !== 'aal2'
+    } catch { return false }
+  }
 
   const loadPerfil = async (userId) => {
     const { data, error } = await supabase
@@ -36,7 +45,13 @@ export function AuthProvider({ children }) {
           // fetch queue durante el evento INITIAL_SESSION.
           setTimeout(async () => {
             const p = await loadPerfil(session.user.id)
-            setPerfil(p)
+            if (p && p.rol !== 'paciente' && await requiereMfa()) {
+              setMfaPendiente(true)
+              setPerfil(null)
+            } else {
+              setMfaPendiente(false)
+              setPerfil(p)
+            }
             setLoading(false)
           }, 0)
         } else {
@@ -63,13 +78,28 @@ export function AuthProvider({ children }) {
       await supabase.auth.signOut()
       throw new Error('Tu usuario está desactivado. Contactá a un administrador.')
     }
+    if (await requiereMfa()) return { ...data, mfaRequired: true }
     return data
+  }
+
+  // Segundo paso del login: código de 6 dígitos de la app autenticadora.
+  const verificarMfa = async (codigo) => {
+    const { data: factores, error: e1 } = await supabase.auth.mfa.listFactors()
+    if (e1) throw e1
+    const factor = factores?.totp?.[0]
+    if (!factor) throw new Error('No hay un autenticador configurado para esta cuenta.')
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: codigo })
+    if (error) throw new Error('El código no es válido o venció. Probá con el siguiente.')
+    const { data: { user } } = await supabase.auth.getUser()
+    setPerfil(await loadPerfil(user.id))
+    setMfaPendiente(false)
   }
 
   const signOut = async () => {
     await supabase.auth.signOut()
     setSession(null)
     setPerfil(null)
+    setMfaPendiente(false)
   }
 
   // Vuelve a traer el perfil del usuario actual desde la tabla `usuario`.
@@ -84,7 +114,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, perfil, loading, signIn, signOut, refreshPerfil }}>
+    <AuthContext.Provider value={{ session, perfil, loading, mfaPendiente, signIn, verificarMfa, signOut, refreshPerfil }}>
       {children}
     </AuthContext.Provider>
   )

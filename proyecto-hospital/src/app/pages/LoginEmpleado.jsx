@@ -1,16 +1,19 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { OlvideMiPassword } from '../components/OlvideMiPassword'
 import { Activity, Mail, Lock, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react'
 
 export function LoginEmpleado() {
   const navigate        = useNavigate()
-  const { signIn }      = useAuth()
+  const { signIn, verificarMfa, signOut } = useAuth()
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
+  const [pasoMfa,  setPasoMfa]  = useState(false)
+  const [codigo,   setCodigo]   = useState('')
 
   const handleLogin = async (e) => {
     e?.preventDefault()
@@ -23,7 +26,8 @@ export function LoginEmpleado() {
     setError('')
 
     try {
-      await signIn(email.trim(), password)
+      const r = await signIn(email.trim(), password)
+      if (r?.mfaRequired) { setPasoMfa(true); return }
       navigate('/empleado')
     } catch (err) {
       // Supabase devuelve mensajes en inglés, los traducimos
@@ -40,6 +44,23 @@ export function LoginEmpleado() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleMfa = async (e) => {
+    e?.preventDefault()
+    if (!/^\d{6}$/.test(codigo.trim())) { setError('Ingresá los 6 dígitos del código.'); return }
+    setLoading(true); setError('')
+    try {
+      await verificarMfa(codigo.trim())
+      navigate('/empleado')
+    } catch (err) {
+      setError(err.message || 'No se pudo verificar el código.')
+    } finally { setLoading(false) }
+  }
+
+  const cancelarMfa = async () => {
+    await signOut()
+    setPasoMfa(false); setCodigo(''); setPassword(''); setError('')
   }
 
   return (
@@ -80,6 +101,26 @@ export function LoginEmpleado() {
               Ingresá con tu email institucional
             </p>
 
+            {pasoMfa ? (
+              <form onSubmit={handleMfa} className="space-y-4">
+                <p className="text-sm text-slate-500">Abrí tu app autenticadora e ingresá el código de 6 dígitos de HMSPro.</p>
+                <input inputMode="numeric" maxLength={6} autoFocus value={codigo}
+                  onChange={(e) => { setCodigo(e.target.value.replace(/\D/g, '')); setError('') }}
+                  placeholder="000000"
+                  className="w-full text-center tracking-[0.5em] text-2xl font-bold py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
+                {error && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                    <p className="text-sm text-red-600 font-medium">{error}</p>
+                  </div>
+                )}
+                <button type="submit" disabled={loading}
+                  className="w-full py-3 bg-[#013FF6] text-white rounded-xl font-semibold text-sm hover:bg-[#0033cc] disabled:opacity-60 flex items-center justify-center gap-2">
+                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Verificando...</> : 'Verificar e ingresar'}
+                </button>
+                <button type="button" onClick={cancelarMfa} className="w-full text-xs font-semibold text-slate-500 hover:underline">Volver</button>
+              </form>
+            ) : (
             <form onSubmit={handleLogin} className="space-y-4">
 
               {/* Email */}
@@ -123,6 +164,8 @@ export function LoginEmpleado() {
                 </div>
               </div>
 
+              <OlvideMiPassword emailInicial={email} />
+
               {/* Error */}
               {error && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
@@ -147,6 +190,7 @@ export function LoginEmpleado() {
               </button>
 
             </form>
+            )}
 
             {/* Contacto admin */}
             <p className="text-xs text-slate-400 text-center mt-6">
