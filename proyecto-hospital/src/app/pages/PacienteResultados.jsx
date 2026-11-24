@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { FlaskConical, Loader2, FileText } from 'lucide-react'
-import { getHistorialCompleto } from '../../services/historialClinicoService'
+import { getHistorialCompleto, abrirDocumento } from '../../services/historialClinicoService'
 import { usePacienteAuth } from '../context/PacienteAuthContext'
 
 export function PacienteResultados() {
@@ -8,6 +8,7 @@ export function PacienteResultados() {
   const [documentos, setDocumentos] = useState([])
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(false)
+  const [errorAbrir, setErrorAbrir]   = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -32,6 +33,8 @@ export function PacienteResultados() {
         <p className="text-slate-500 mt-1">Estudios e informes cargados por el equipo médico</p>
       </div>
 
+      {errorAbrir && <p className="text-sm text-red-600 font-medium">No se pudo abrir el archivo. Intentá de nuevo.</p>}
+
       {loading ? (
         <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-slate-400 mx-auto" /></div>
       ) : error || documentos.length === 0 ? (
@@ -42,8 +45,8 @@ export function PacienteResultados() {
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-50">
           {documentos.map(d => (
-            <a key={d.id} href={d.urlArchivo} target="_blank" rel="noreferrer"
-              className="flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors">
+            <button key={d.id} type="button" onClick={() => abrirDocumento(d).catch(() => setErrorAbrir(true))}
+              className="w-full text-left flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors">
               <div className="w-9 h-9 rounded-xl bg-[#013FF6]/10 flex items-center justify-center flex-shrink-0">
                 <FileText className="h-4 w-4 text-[#013FF6]" />
               </div>
@@ -51,7 +54,7 @@ export function PacienteResultados() {
                 <p className="text-sm font-semibold text-slate-900 truncate">{d.descripcion || 'Documento clínico'}</p>
                 <p className="text-xs text-slate-400 capitalize">{d.tipo} · {new Date(d.subidoAt).toLocaleDateString('es-AR')}</p>
               </div>
-            </a>
+            </button>
           ))}
         </div>
       )}

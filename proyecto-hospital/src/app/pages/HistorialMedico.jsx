@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   FileText, Search, User, Calendar, Activity, Plus, X, Save,
   Loader2, AlertTriangle, CheckCircle2, Stethoscope, Paperclip,
-  ChevronRight, ArrowLeft, CreditCard,
+  ChevronRight, ArrowLeft, CreditCard, Upload,
 } from 'lucide-react'
 import {
   buscarPacientesConHistorial, getHistorialCompleto, actualizarObservaciones,
-  crearAtencion, crearDocumentoClinico,
+  crearAtencion, subirDocumentoClinico, abrirDocumento,
 } from '../../services/historialClinicoService'
 import { useAuth } from '../context/AuthContext'
 
@@ -126,22 +126,22 @@ function ModalNuevaAtencion({ onClose, onCreated, historialId, medicoId }) {
 }
 
 // ── Modal: nuevo documento clínico (metadatos) ──────────────────────
-function ModalNuevoDocumento({ onClose, onCreated, historialId, subidoPor }) {
+function ModalNuevoDocumento({ onClose, onCreated, historialId, pacienteId, subidoPor }) {
   const [tipo, setTipo]               = useState(TIPOS_DOCUMENTO[0].value)
   const [descripcion, setDescripcion] = useState('')
-  const [urlArchivo, setUrlArchivo]   = useState('')
+  const [archivo, setArchivo]         = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
 
   const handleSave = async () => {
-    if (!urlArchivo.trim()) return setError('El link al archivo es obligatorio (subilo primero a Storage).')
+    if (!archivo) return setError('Seleccioná el archivo a subir (PDF o imagen, máx. 10 MB).')
     setSaving(true); setError('')
     try {
-      const nuevo = await crearDocumentoClinico(historialId, { tipo, descripcion, urlArchivo, subidoPor })
+      const nuevo = await subirDocumentoClinico({ historialId, pacienteId, tipo, descripcion, archivo, subidoPor })
       onCreated(nuevo)
       onClose()
     } catch (err) {
-      setError(err.message || 'Error al registrar el documento.')
+      setError(err.message || 'Error al subir el documento.')
     } finally { setSaving(false) }
   }
 
@@ -175,10 +175,14 @@ function ModalNuevoDocumento({ onClose, onCreated, historialId, subidoPor }) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Link al archivo *</label>
-            <input value={urlArchivo} onChange={e => setUrlArchivo(e.target.value)}
-              placeholder="URL del documento subido a Storage..."
-              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Archivo *</label>
+            <label className="flex flex-col items-center justify-center gap-1.5 px-3.5 py-5 border-2 border-dashed border-slate-200 rounded-xl text-sm text-slate-500 cursor-pointer hover:border-[#013FF6]/50 hover:bg-slate-50">
+              <Upload className="h-5 w-5 text-slate-400" />
+              <span className="font-medium text-center break-all">{archivo ? archivo.name : 'Elegir PDF o imagen'}</span>
+              <span className="text-xs text-slate-400">PDF, PNG, JPG o WEBP · máx. 10 MB</span>
+              <input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" className="hidden"
+                onChange={e => setArchivo(e.target.files?.[0] || null)} />
+            </label>
           </div>
 
           {error && (
@@ -192,7 +196,7 @@ function ModalNuevoDocumento({ onClose, onCreated, historialId, subidoPor }) {
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
           <button onClick={handleSave} disabled={saving}
             className="flex-1 py-2.5 rounded-xl bg-[#013FF6] text-white text-sm font-semibold hover:bg-[#0033cc] flex items-center justify-center gap-2 disabled:opacity-60">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Subir
           </button>
         </div>
       </div>
@@ -331,8 +335,8 @@ function DetalleHistorial({ paciente, onVolver, medicoId, showToast }) {
         ) : (
           <div className="space-y-2">
             {historial.documentoClinico.map(d => (
-              <a key={d.id} href={d.urlArchivo} target="_blank" rel="noreferrer"
-                className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+              <button key={d.id} type="button" onClick={() => abrirDocumento(d).catch(err => showToast(err.message, 'error'))}
+                className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 text-left">
                 <div className="w-8 h-8 bg-[#013FF6]/10 rounded-lg flex items-center justify-center flex-shrink-0">
                   <FileText className="h-4 w-4 text-[#013FF6]" />
                 </div>
@@ -340,7 +344,7 @@ function DetalleHistorial({ paciente, onVolver, medicoId, showToast }) {
                   <p className="text-sm font-semibold text-slate-900 truncate">{d.descripcion || d.tipo}</p>
                   <p className="text-xs text-slate-400 capitalize">{d.tipo} · {new Date(d.subidoAt).toLocaleDateString('es-AR')}</p>
                 </div>
-              </a>
+              </button>
             ))}
           </div>
         )}
@@ -357,6 +361,7 @@ function DetalleHistorial({ paciente, onVolver, medicoId, showToast }) {
       {modalDocumento && (
         <ModalNuevoDocumento
           historialId={historial.id}
+          pacienteId={paciente.id}
           subidoPor={medicoId}
           onClose={() => setModalDocumento(false)}
           onCreated={d => setHistorial(prev => ({ ...prev, documentoClinico: [d, ...prev.documentoClinico] }))}

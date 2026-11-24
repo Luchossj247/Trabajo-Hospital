@@ -107,28 +107,67 @@ export async function actualizarAtencion(atencionId, campos) {
   return data
 }
 
-// ── Registrar metadatos de un documento clínico (estudio, informe, etc.) ──
-// tipo debe ser uno de: 'estudio' | 'imagen' | 'laboratorio' | 'informe' | 'otro' (check constraint en DB).
-// subidoPor es obligatorio en la tabla (uuid del usuario que lo sube).
-export async function crearDocumentoClinico(historialId, { tipo, descripcion, urlArchivo, subidoPor }) {
+// ── Documentos clínicos con archivo real en Supabase Storage ─────────
+// Bucket privado "documentos-clinicos". Ruta: {pacienteId}/{uuid}-{nombre}.
+// El acceso lo controlan las políticas RLS de storage.objects (personal clínico y
+// el propio paciente) y los archivos se sirven con URLs firmadas de corta duración.
+const BUCKET = 'documentos-clinicos'
+const MAX_BYTES = 10 * 1024 * 1024
+const TIPOS_PERMITIDOS = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
+
+// tipo debe ser: 'estudio' | 'imagen' | 'laboratorio' | 'informe' | 'otro' (check constraint en DB).
+export async function subirDocumentoClinico({ historialId, pacienteId, tipo, descripcion, archivo, subidoPor }) {
+  if (!archivo) throw new Error('Seleccioná un archivo.')
+  if (!TIPOS_PERMITIDOS.includes(archivo.type)) throw new Error('Formato no permitido. Subí un PDF o una imagen (PNG, JPG, WEBP).')
+  if (archivo.size > MAX_BYTES) throw new Error('El archivo supera el máximo de 10 MB.')
+
+  const limpio = archivo.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
+  const ruta = `${pacienteId}/${crypto.randomUUID()}-${limpio}`
+
+  const { error: upErr } = await supabase.storage.from(BUCKET).upload(ruta, archivo, { contentType: archivo.type })
+  if (upErr) throw new Error(upErr.message || 'No se pudo subir el archivo.')
+
   const { data, error } = await supabase
     .from('documentoClinico')
     .insert([{
       historialClinicoId: historialId,
       tipo,
       descripcion: descripcion || null,
-      urlArchivo,
+      rutaStorage: ruta,
+      nombreArchivo: archivo.name,
       subidoPor,
       subidoAt: new Date().toISOString(),
     }])
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    await supabase.storage.from(BUCKET).remove([ruta]) // evita archivos huérfanos
+    throw error
+  }
   return data
 }
 
-export async function eliminarDocumentoClinico(id) {
-  const { error } = await supabase.from('documentoClinico').delete().eq('id', id)
+// Devuelve una URL válida 5 minutos para abrir/descargar el documento.
+export async function getUrlDocumento(doc) {
+  if (doc.rutaStorage) {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(doc.rutaStorage, 300)
+    if (error) throw new Error('No se pudo acceder al archivo.')
+    return data.signedUrl
+  }
+  return doc.urlArchivo // documentos antiguos con link externo
+}
+
+export async function abrirDocumento(doc) {
+  const url = await getUrlDocumento(doc)
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+export async function eliminarDocumentoClinico(doc) {
+  if (doc.rutaStorage) {
+    const { error: e1 } = await supabase.storage.from(BUCKET).remove([doc.rutaStorage])
+    if (e1) throw e1
+  }
+  const { error } = await supabase.from('documentoClinico').delete().eq('id', doc.id)
   if (error) throw error
 }
