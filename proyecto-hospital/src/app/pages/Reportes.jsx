@@ -124,6 +124,7 @@ export function Reportes() {
     .map(([n, c]) => [NIVEL_LABEL[n] || n, c])
 
   const exportarPDF = () => imprimirDocumento({
+    formato: 'informe',
     titulo: 'Reporte de gestión hospitalaria',
     nombreArchivo: `Reporte ${rangoLabel}`,
     subtitulo: `Período analizado: ${rangoLabel === 'Hoy' ? 'hoy' : `últimos ${rangoLabel}`} · La ocupación de camas es al momento de la emisión`,

@@ -1,7 +1,7 @@
 // Plantillas de los documentos que emite el hospital. Cada función arma el contenido y abre
 // el diálogo de impresión / "Guardar como PDF" (ver lib/documentos.js).
 import {
-  imprimirDocumento, bloques, fmtFecha, fmtFechaHora, fmtMoneda, calcularEdad, etiquetaEstado, SEXO,
+  imprimirDocumento, bloques, esc, HOSPITAL, fmtFecha, fmtFechaHora, fmtMoneda, calcularEdad, etiquetaEstado, SEXO,
 } from './documentos'
 
 const nombreCompleto = (p) => (p ? `${p.apellido}, ${p.nombre}` : '—')
@@ -19,22 +19,32 @@ function datosPaciente(paciente) {
   ])
 }
 
+// Tarjeta de identificación para documentos clínicos.
+function bannerPaciente(paciente) {
+  const edad = calcularEdad(paciente.fechaNacimiento)
+  return bloques.banner({
+    nombre: nombreCompleto(paciente),
+    detalle: [`DNI ${paciente.dni}`, edad != null ? `${edad} años` : null, SEXO[paciente.sexo]].filter(Boolean).join(' · '),
+    alerta: paciente.alergias || null,
+    grupo: paciente.grupoSanguineo || null,
+  })
+}
+
 // ── Receta médica ────────────────────────────────────────────────
 export function imprimirReceta({ receta, paciente, medico, items, generadoPor }) {
+  const meds = items.map((it, i) => `<div class="med"><div class="num">${i + 1}.</div><div><div class="nombre">${esc(it.medicamentoNombre)}</div>` +
+    `<div class="pos">${esc([it.dosis, it.frecuencia].filter(Boolean).join(' · ') || '—')}</div>` +
+    `${it.indicaciones ? `<div class="ind">${esc(it.indicaciones)}</div>` : ''}</div></div>`).join('')
   imprimirDocumento({
+    formato: 'receta',
     titulo: 'Receta médica',
     nombreArchivo: `Receta ${paciente.apellido} ${paciente.nombre}`,
     codigo: codigoCorto(receta?.id),
     generadoPor,
     secciones: [
-      { titulo: 'Paciente', html: datosPaciente(paciente) },
-      { titulo: 'Fecha de emisión', html: bloques.parrafo(fmtFechaHora(receta?.createdAt || new Date().toISOString())) },
-      {
-        titulo: 'Prescripción',
-        html: bloques.tabla(
-          ['N.º', 'Medicamento', 'Dosis', 'Frecuencia', 'Indicaciones'],
-          items.map((it, i) => [i + 1, it.medicamentoNombre, it.dosis || '—', it.frecuencia || '—', it.indicaciones || '—'])),
-      },
+      { html: bannerPaciente(paciente) },
+      { html: `<div class="rx">℞</div>${meds}` },
+      { html: bloques.parrafo(`Fecha de emisión: ${fmtFechaHora(receta?.createdAt || new Date().toISOString())}`) },
     ],
     firmas: [{ nombre: nombreMedico(medico), detalle: 'Firma y sello del profesional' }],
     pie: 'Receta emitida desde el sistema HMSPro. Requiere la firma y el sello del profesional para su entrega en farmacia.',
@@ -46,20 +56,18 @@ export function imprimirHistorialClinico({ paciente, cobertura, historial, gener
   const atenciones = historial?.atencionMedica || []
   const documentos = historial?.documentoClinico || []
   imprimirDocumento({
+    formato: 'clinico',
     titulo: 'Historial clínico',
     nombreArchivo: `Historial clinico ${paciente.apellido} ${paciente.nombre}`,
     subtitulo: nombreCompleto(paciente),
     codigo: codigoCorto(historial?.id),
     generadoPor,
     secciones: [
+      { html: bannerPaciente(paciente) },
       {
-        titulo: 'Datos del paciente',
+        titulo: 'Datos de contacto',
         html: bloques.datos([
-          ['Paciente', nombreCompleto(paciente)],
-          ['DNI', paciente.dni],
           ['Fecha de nacimiento', paciente.fechaNacimiento ? `${fmtFecha(paciente.fechaNacimiento)} (${calcularEdad(paciente.fechaNacimiento)} años)` : '—'],
-          ['Sexo', SEXO[paciente.sexo] || '—'],
-          ['Grupo sanguíneo', paciente.grupoSanguineo || '—'],
           ['Alergias', paciente.alergias || 'No registradas'],
           ['Teléfono', paciente.telefono || '—'],
           ['Dirección', paciente.direccion || '—'],
@@ -101,6 +109,7 @@ export function imprimirConstanciaAtencion({ paciente, atencion, generadoPor }) 
     `Se deja constancia de que ${nombreCompleto(paciente)}, DNI ${paciente.dni}, fue atendido/a el ${fmtFecha(atencion.fecha)} ` +
     `en el establecimiento, en el marco de una atención médica por el siguiente motivo: ${atencion.motivo}.`
   imprimirDocumento({
+    formato: 'formal',
     titulo: 'Constancia de atención médica',
     nombreArchivo: `Constancia ${paciente.apellido} ${paciente.nombre} ${fmtFecha(atencion.fecha)}`,
     codigo: codigoCorto(atencion.id),
@@ -126,31 +135,24 @@ export function imprimirConstanciaAtencion({ paciente, atencion, generadoPor }) 
 // ── Comprobante de facturación ───────────────────────────────────
 export function imprimirComprobanteFactura({ factura, generadoPor }) {
   const p = factura.datosPaciente || factura.paciente
+  const pago = String(factura.estadoPago || '').toLowerCase()
+  const sello = pago.includes('pag') && !pago.includes('pend') ? ['PAGADO', '#047857'] : pago.includes('parc') ? ['PAGO PARCIAL', '#b45309'] : pago.includes('pend') ? ['PENDIENTE', '#b45309'] : [etiquetaEstado(factura.estadoPago).toUpperCase(), '#b91c1c']
   imprimirDocumento({
+    formato: 'factura',
     titulo: 'Comprobante de facturación',
     nombreArchivo: `Comprobante ${p?.apellido ?? ''} ${p?.nombre ?? ''}`.trim(),
     codigo: codigoCorto(factura.id),
     generadoPor,
     secciones: [
       {
-        titulo: 'Paciente',
-        html: bloques.datos([['Paciente', nombreCompleto(p)], ['DNI', p?.dni], ['Fecha de emisión', fmtFecha(factura.createdAt)]]),
-      },
-      {
-        titulo: 'Detalle',
-        html: bloques.tabla(['Concepto', 'Importe'], [
-          ['Atención en guardia — monto total', fmtMoneda(factura.montoTotal)],
-          ['Cubierto por la obra social', fmtMoneda(factura.montoObraSocial)],
-          ['A cargo del paciente', fmtMoneda(factura.montoPaciente)],
-        ], { alinearDerecha: [1] }),
-      },
-      {
-        titulo: 'Estado',
-        html: bloques.datos([
-          ['Cobertura', etiquetaEstado(factura.estadoCobertura)],
-          ['Pago', etiquetaEstado(factura.estadoPago)],
+        html: bloques.cajas([
+          { titulo: 'Emisor', nombre: HOSPITAL.nombre, lineas: [HOSPITAL.subtitulo, 'Facturación y cobranzas'] },
+          { titulo: 'Facturado a', nombre: nombreCompleto(p), lineas: [`DNI ${p?.dni ?? '—'}`, `Fecha de emisión: ${fmtFecha(factura.createdAt)}`, `Cobertura: ${etiquetaEstado(factura.estadoCobertura)}`] },
         ]),
       },
+      { titulo: 'Detalle', html: bloques.tabla(['Concepto', 'Importe'], [['Atención en guardia', fmtMoneda(factura.montoTotal)], ['Cubierto por la obra social', `− ${fmtMoneda(factura.montoObraSocial)}`]], { alinearDerecha: [1] }) },
+      { html: bloques.totales([['Subtotal', fmtMoneda(factura.montoTotal)], ['Obra social', `− ${fmtMoneda(factura.montoObraSocial)}`], ['TOTAL A CARGO DEL PACIENTE', fmtMoneda(factura.montoPaciente)]]) },
+      { html: bloques.sello(sello[0], sello[1]) },
       ...(factura.observaciones ? [{ titulo: 'Observaciones', html: bloques.parrafo(factura.observaciones) }] : []),
     ],
     pie: 'Comprobante interno de gestión hospitalaria: no reemplaza a la factura fiscal.',
@@ -162,20 +164,20 @@ export function imprimirComprobanteTurno({ turno, generadoPor }) {
   const p = turno.paciente
   const fecha = turno.fecha ? new Date(turno.fecha + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—'
   imprimirDocumento({
+    formato: 'comprobante',
     titulo: 'Comprobante de turno',
     nombreArchivo: `Turno ${p?.apellido ?? ''} ${turno.fecha ?? ''}`.trim(),
     codigo: codigoCorto(turno.id),
     generadoPor,
     secciones: [
-      { titulo: 'Paciente', html: bloques.datos([['Paciente', nombreCompleto(p)], ['DNI', p?.dni]]) },
       {
-        titulo: 'Turno',
-        html: bloques.datos([
-          ['Fecha', fecha],
-          ['Horario', turno.horaInicio ? `${turno.horaInicio.slice(0, 5)}${turno.horaFin ? ` a ${turno.horaFin.slice(0, 5)}` : ''} hs` : '—'],
-          ['Profesional', nombreMedico(turno.medico)],
-          ['Motivo', turno.motivo || 'Consulta general'],
-          ['Estado', etiquetaEstado(turno.estado)],
+        html: bloques.ticket([
+          { clase: 'medio', texto: nombreCompleto(p) },
+          { texto: `DNI ${p?.dni ?? '—'}` },
+          { clase: 'grande', texto: turno.horaInicio ? `${turno.horaInicio.slice(0, 5)} hs` : '—' },
+          { clase: 'medio', texto: fecha },
+          { texto: nombreMedico(turno.medico) },
+          { texto: `${turno.motivo || 'Consulta general'} · ${etiquetaEstado(turno.estado)}` },
         ]),
       },
     ],
@@ -186,6 +188,7 @@ export function imprimirComprobanteTurno({ turno, generadoPor }) {
 // ── Ficha del paciente ───────────────────────────────────────────
 export function imprimirFichaPaciente({ paciente, cobertura, generadoPor }) {
   imprimirDocumento({
+    formato: 'clinico',
     titulo: 'Ficha del paciente',
     nombreArchivo: `Ficha ${paciente.apellido} ${paciente.nombre}`,
     codigo: codigoCorto(paciente.id),
@@ -260,9 +263,13 @@ export function imprimirAgendaMedica({ agendas, generadoPor }) {
     .sort((x, y) => String(x.medico?.apellido).localeCompare(String(y.medico?.apellido)))
     .map(({ medico, franjas }) => ({
       titulo: nombreMedico(medico),
-      html: bloques.tabla(['Día', 'Franja horaria', 'Duración del turno', 'Turnos por franja', 'Estado'], filasAgenda(franjas), { alinearDerecha: [3] }),
+      html: bloques.semana(franjas.filter(f => f.activo).reduce((acc, f) => {
+        (acc[f.diaSemana] = acc[f.diaSemana] || []).push(`${hhmm(f.horaInicio)} a ${hhmm(f.horaFin)} · ${f.duracionSlot} min`)
+        return acc
+      }, {})),
     }))
   imprimirDocumento({
+    formato: 'agenda',
     titulo: 'Agenda de atención médica',
     nombreArchivo: 'Agenda medica',
     subtitulo: 'Días y franjas horarias de atención por profesional',
@@ -276,6 +283,7 @@ export function imprimirHorariosPersonal({ horarios, desde, hasta, titulo = 'Hor
   const TIPOS = { fijo: 'Fijo', guardia: 'Guardia', asignado: 'Asignado' }
   const fecha = (f) => new Date(f + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: '2-digit' })
   imprimirDocumento({
+    formato: 'agenda',
     titulo,
     nombreArchivo: titulo,
     subtitulo: desde && hasta ? `Período: ${fmtFecha(desde)} al ${fmtFecha(hasta)}` : undefined,
@@ -292,6 +300,7 @@ export function imprimirHorariosPersonal({ horarios, desde, hasta, titulo = 'Hor
 export function imprimirListaTurnos({ turnos, titulo, subtitulo, generadoPor }) {
   const ordenados = [...turnos].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.horaInicio.localeCompare(b.horaInicio))
   imprimirDocumento({
+    formato: 'agenda',
     titulo,
     nombreArchivo: titulo,
     subtitulo,
@@ -319,6 +328,7 @@ export function imprimirComprobanteEntrega({ pedido, generadoPor }) {
     return [i + 1, it.medicamentoNombre, `${it.dosis || '—'} · ${it.frecuencia || '—'}`, accion, detalle]
   })
   imprimirDocumento({
+    formato: 'comprobante',
     titulo: 'Comprobante de entrega de medicamentos',
     nombreArchivo: `Entrega farmacia ${paciente.apellido || ''} ${paciente.nombre || ''}`.trim(),
     codigo: codigoCorto(pedido.id),
@@ -350,6 +360,7 @@ export function imprimirComprobanteEntrega({ pedido, generadoPor }) {
 export function imprimirReposicionStock({ medicamentos, generadoPor }) {
   const faltantes = medicamentos.filter(m => m.stockActual <= m.stockMinimo)
   imprimirDocumento({
+    formato: 'informe',
     titulo: 'Informe de reposición de stock',
     nombreArchivo: 'Reposicion de stock',
     subtitulo: `${faltantes.length} medicamento(s) en o por debajo del stock mínimo`,
@@ -373,13 +384,14 @@ export function imprimirEpicrisis({ internacion, paciente, cobertura, comentario
     ? Math.max(1, Math.ceil(((internacion.fin ? new Date(internacion.fin) : new Date()) - new Date(internacion.inicio)) / 86400000))
     : null
   imprimirDocumento({
+    formato: 'clinico',
     titulo: activa ? 'Resumen de internación' : 'Epicrisis',
     nombreArchivo: `${activa ? 'Resumen internacion' : 'Epicrisis'} ${paciente.apellido} ${paciente.nombre}`,
     subtitulo: nombreCompleto(paciente),
     codigo: codigoCorto(internacion.id),
     generadoPor,
     secciones: [
-      { titulo: 'Paciente', html: datosPaciente(paciente) },
+      { html: bannerPaciente(paciente) },
       {
         titulo: 'Cobertura',
         html: bloques.datos([
@@ -424,11 +436,12 @@ export function imprimirEpicrisis({ internacion, paciente, cobertura, comentario
 // ── Orden de estudios ────────────────────────────────────────────
 export function imprimirOrdenEstudios({ paciente, cobertura, medico, estudios, diagnostico, prioridad, indicaciones, generadoPor }) {
   imprimirDocumento({
+    formato: 'clinico',
     titulo: 'Orden de estudios',
     nombreArchivo: `Orden de estudios ${paciente.apellido} ${paciente.nombre}`,
     generadoPor,
     secciones: [
-      { titulo: 'Paciente', html: datosPaciente(paciente) },
+      { html: bannerPaciente(paciente) },
       { html: bloques.datos([['Obra social', cobertura?.obraSocial || '—'], ['N.º de afiliado', cobertura?.numeroAfiliado || '—'], ['Prioridad', prioridad || 'Normal']]) },
       { titulo: 'Diagnóstico presuntivo', html: bloques.parrafo(diagnostico) },
       { titulo: 'Estudios solicitados', html: bloques.lista(estudios) },
@@ -442,6 +455,7 @@ export function imprimirOrdenEstudios({ paciente, cobertura, medico, estudios, d
 // ── Consentimiento informado ─────────────────────────────────────
 export function imprimirConsentimiento({ paciente, medico, procedimiento, riesgos, alternativas, generadoPor }) {
   imprimirDocumento({
+    formato: 'formal',
     titulo: 'Consentimiento informado',
     nombreArchivo: `Consentimiento ${paciente.apellido} ${paciente.nombre}`,
     generadoPor,

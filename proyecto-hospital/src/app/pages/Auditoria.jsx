@@ -133,6 +133,7 @@ export function Auditoria() {
           eventos.map(({ r, ev }) => [fmtFechaHora(r.createdAt), ev.actor, ev.accion.label, ev.seccion, ev.frase, ev.resumenCambios]))
       } else {
         imprimirDocumento({
+          formato: 'informe',
           titulo: 'Informe de auditoría',
           nombreArchivo: 'Informe de auditoria',
           subtitulo: descripcionFiltros(),
