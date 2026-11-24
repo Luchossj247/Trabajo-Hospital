@@ -23,7 +23,7 @@ export async function getHistorialCompleto(pacienteId) {
     .from('historialClinico')
     .select(`
       *,
-      atencionMedica ( * ),
+      atencionMedica ( *, medico:medicoId ( nombre, apellido ) ),
       documentoClinico ( * )
     `)
     .eq('pacienteId', pacienteId)
@@ -40,7 +40,7 @@ export async function getHistorialCompleto(pacienteId) {
     const { data: nuevo, error: errCreate } = await supabase
       .from('historialClinico')
       .insert([{ pacienteId }])
-      .select(`*, atencionMedica ( * ), documentoClinico ( * )`)
+      .select(`*, atencionMedica ( *, medico:medicoId ( nombre, apellido ) ), documentoClinico ( * )`)
       .single()
 
     if (errCreate) {
