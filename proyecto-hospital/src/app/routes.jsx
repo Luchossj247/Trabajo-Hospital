@@ -32,6 +32,7 @@ import { Ajustes } from './pages/Ajustes.jsx'
 import { Mensajes } from './pages/Mensajes.jsx'
 import { GestionHorarios } from './pages/GestionHorarios.jsx'
 import { Auditoria } from './pages/Auditoria.jsx'
+import { RestablecerPassword } from './pages/RestablecerPassword.jsx'
 import { PacienteLogin } from './pages/PacienteLogin.jsx'
 import { PacienteRegistro } from './pages/PacienteRegistro.jsx'
 import { PacienteLayout } from './components/PacienteLayout.jsx'
@@ -77,6 +78,7 @@ const protect = (route, element, requiredRoute) => ({
 export const router = createBrowserRouter([
   { path: '/', Component: TipoUsuario },
   { path: '/empleado-login', Component: LoginEmpleado },
+  { path: '/restablecer-password', Component: RestablecerPassword },
   { path: '/paciente-login', Component: PacienteLogin },
   { path: '/paciente-registro', Component: PacienteRegistro },
   {

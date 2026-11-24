@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { OlvideMiPassword } from '../components/OlvideMiPassword'
 import { Activity, ArrowLeft, AlertCircle, Loader2, Mail, Lock } from 'lucide-react'
 import { loginPaciente } from '../../services/portalPacienteService'
 import { usePacienteAuth } from '../context/PacienteAuthContext'
@@ -79,6 +80,8 @@ export function PacienteLogin() {
                     className="w-full pl-9 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
                 </div>
               </div>
+
+              <OlvideMiPassword emailInicial={email} />
 
               {error && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">

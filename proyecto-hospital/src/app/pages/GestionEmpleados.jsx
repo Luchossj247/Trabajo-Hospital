@@ -147,6 +147,9 @@ export function GestionEmpleados() {
     if (!editTarget && !form.passwordHash.trim()) {
       return showToast('La contraseña es obligatoria.', 'error')
     }
+    if (!editTarget && form.passwordHash.trim().length < 8) {
+      return showToast('La contraseña debe tener al menos 8 caracteres.', 'error')
+    }
 
     setSaving(true)
     try {
@@ -195,8 +198,8 @@ export function GestionEmpleados() {
     if (!newPassword.trim()) {
       return showToast('Ingresá la nueva contraseña.', 'error')
     }
-    if (newPassword.length < 6) {
-      return showToast('La contraseña debe tener al menos 6 caracteres.', 'error')
+    if (newPassword.length < 8) {
+      return showToast('La contraseña debe tener al menos 8 caracteres.', 'error')
     }
 
     setResetting(true)
@@ -477,7 +480,7 @@ export function GestionEmpleados() {
                     type="password"
                     value={form.passwordHash || ''}
                     onChange={e => setField('passwordHash', e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
                   />
                 </div>
@@ -577,7 +580,7 @@ export function GestionEmpleados() {
                   type="password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                   autoFocus
                   className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm
                     focus:outline-none focus:ring-2 focus:ring-amber-400/40"
