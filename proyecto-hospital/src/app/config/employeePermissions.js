@@ -7,9 +7,9 @@ export const menuPermissions = {
     fullAccess: true,
     routes: [
       'dashboard', 'triaje', 'registro', 'camas', 'historial', 'historial-admin' ,
-      'farmacia', 'cobertura', 'facturacion', 'perfil', 'ajustes',
+      'farmacia', 'cobertura', 'facturacion', 'ajustes',
       'gestion-empleados', 'reportes', 'turnos', 'cola-espera', 'agenda-medica',
-      'mensajes',
+      'mensajes', 'horarios', 'auditoria',
     ],
   },
 
@@ -18,7 +18,7 @@ export const menuPermissions = {
     fullAccess: false,
     routes: [
       'dashboard', 'triaje', 'camas', 'historial',
-      'perfil', 'ajustes', 'mensajes',
+      'ajustes', 'mensajes', 'horarios',
     ],
   },
 
@@ -27,7 +27,7 @@ export const menuPermissions = {
     fullAccess: false,
     routes: [
       'dashboard', 'triaje', 'camas',
-      'perfil', 'ajustes', 'mensajes',
+      'ajustes', 'mensajes', 'horarios',
     ],
   },
 
@@ -36,7 +36,7 @@ export const menuPermissions = {
     fullAccess: false,
     routes: [
       'dashboard', 'farmacia',
-      'perfil', 'ajustes', 'mensajes',
+      'ajustes', 'mensajes', 'horarios',
     ],
   },
 
@@ -45,7 +45,7 @@ export const menuPermissions = {
     fullAccess: false,
     routes: [
       'dashboard', 'registro', 'cobertura', 'facturacion', 'historial-admin', 'turnos',
-      'perfil', 'ajustes', 'cola-espera', 'mensajes',
+      'ajustes', 'cola-espera', 'mensajes', 'horarios',
     ],
   },
 }

@@ -5,6 +5,7 @@ import {
   User, UserPlus, BedDouble, HeartPulse, FileText, Pill,
   Shield, BarChart2, Calendar, Loader2, Clock, Receipt, CalendarDays,
   ChevronDown, Stethoscope, ClipboardList, Building2, MessageSquare,
+  CalendarClock, ScrollText,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { hasAccess } from '../config/employeePermissions.js'
@@ -26,6 +27,8 @@ const ALL_NAV_ITEMS = [
   { name: 'Reportes',           href: '/empleado/reportes',          icon: BarChart2,       route: 'reportes' },
   { name: 'Agenda Médica',      href: '/empleado/agenda-medica',     icon: CalendarDays,    route: 'agenda-medica' },
   { name: 'Mensajes',           href: '/empleado/mensajes',          icon: MessageSquare,   route: 'mensajes' },
+  { name: 'Horarios',           href: '/empleado/horarios',          icon: CalendarClock,   route: 'horarios' },
+  { name: 'Auditoría',          href: '/empleado/auditoria',         icon: ScrollText,      route: 'auditoria' },
 ]
 
 // Agrupamos los ítems en secciones temáticas y colapsables, en vez de una
@@ -33,10 +36,10 @@ const ALL_NAV_ITEMS = [
 // muchos permisos (admin/recepcionista), y roles con pocos ítems (enfermero,
 // farmacia) simplemente no muestran las secciones vacías.
 const SECTIONS = [
-  { key: 'principal', label: null,                icon: null,         routes: ['dashboard', 'mensajes'] },
+  { key: 'principal', label: null,                icon: null,         routes: ['dashboard', 'mensajes', 'horarios'] },
   { key: 'clinico',   label: 'Clínico',            icon: Stethoscope,  routes: ['triaje', 'camas', 'historial', 'farmacia'] },
   { key: 'pacientes', label: 'Pacientes',          icon: ClipboardList, routes: ['registro', 'cobertura', 'cola-espera', 'facturacion', 'historial-admin'] },
-  { key: 'gestion',   label: 'Administración',     icon: Building2,    routes: ['gestion-empleados', 'turnos', 'reportes', 'agenda-medica'] },
+  { key: 'gestion',   label: 'Administración',     icon: Building2,    routes: ['gestion-empleados', 'turnos', 'reportes', 'agenda-medica', 'auditoria'] },
 ]
 
 const ROL_LABELS = {

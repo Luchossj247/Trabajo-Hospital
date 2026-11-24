@@ -30,6 +30,8 @@ import { HistorialMedico } from './pages/HistorialMedico.jsx'
 import { Reportes } from './pages/Reportes.jsx'
 import { Ajustes } from './pages/Ajustes.jsx'
 import { Mensajes } from './pages/Mensajes.jsx'
+import { GestionHorarios } from './pages/GestionHorarios.jsx'
+import { Auditoria } from './pages/Auditoria.jsx'
 import { PacienteLogin } from './pages/PacienteLogin.jsx'
 import { PacienteRegistro } from './pages/PacienteRegistro.jsx'
 import { PacienteLayout } from './components/PacienteLayout.jsx'
@@ -119,8 +121,9 @@ export const router = createBrowserRouter([
       protect('agenda-medica', <GestionAgenda />),
 
 
-      // ── Usuario ────────────────────────────────────────────
-      protect('perfil',   <Placeholder title="Mi Perfil" />),
+      // ── Usuario / Personal ────────────────────────────────────────────
+      protect('horarios',  <GestionHorarios />),
+      protect('auditoria', <Auditoria />),
       protect('ajustes',  <Ajustes />),
       protect('mensajes', <Mensajes />),
     ],
