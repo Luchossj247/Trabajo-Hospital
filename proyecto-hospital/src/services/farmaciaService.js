@@ -28,9 +28,12 @@ export async function getPedidosResueltos(limit = 30) {
     .select(`
       *,
       receta:recetaId (
-        id,
-        guardia:guardiaId ( id, paciente:pacienteId ( id, nombre, apellido, dni ) )
+        id, createdAt,
+        medico:medicoId ( id, nombre, apellido ),
+        guardia:guardiaId ( id, paciente:pacienteId ( id, nombre, apellido, dni, fechaNacimiento, sexo ) ),
+        recetaItem ( * )
       ),
+      farmaciaUsuario:farmaciaUsuarioId ( id, nombre, apellido ),
       pedidoItem ( * )
     `)
     .in('estado', ['completado', 'cancelado'])
@@ -92,4 +95,24 @@ export async function finalizarPedido(pedidoId, recetaId, { observaciones, cance
     .eq('id', recetaId)
 
   if (errReceta) throw errReceta
+}
+
+// ── Inventario ───────────────────────────────────────────────────────
+export async function getMedicamentos() {
+  const { data, error } = await supabase
+    .from('medicamento')
+    .select('id, nombre, stockActual, stockMinimo, updatedAt')
+    .order('nombre', { ascending: true })
+  if (error) throw error
+  return data
+}
+
+// Suma unidades al stock (función de base de datos: solo farmacia y administrador).
+export async function ingresarStock(medicamentoId, cantidad) {
+  const { data, error } = await supabase.rpc('ingresar_stock', {
+    p_medicamento: medicamentoId,
+    p_cantidad: cantidad,
+  })
+  if (error) throw error
+  return data // nuevo stock
 }
