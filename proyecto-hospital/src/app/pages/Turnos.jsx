@@ -12,7 +12,8 @@ import {
 import { searchPacientes } from '../../services/pacienteService'
 import { useAuth } from '../context/AuthContext'
 import { BotonDocumento } from '../components/BotonDocumento'
-import { imprimirComprobanteTurno } from '../../lib/plantillas'
+import { imprimirComprobanteTurno, imprimirListaTurnos } from '../../lib/plantillas'
+import { nombreDe, fmtFecha } from '../../lib/documentos'
 
 // ── Constantes ────────────────────────────────────────────────
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -620,6 +621,8 @@ function TurnoCard({ turno, onEdit, onCancelar, onPasarGuardia }) {
   )
 }
 
+const nombreProfesional = (m) => (m ? `Dr/a. ${m.apellido}, ${m.nombre}` : 'Profesional')
+
 // ── Componente principal ──────────────────────────────────────
 export function Turnos() {
   const { perfil } = useAuth()
@@ -739,6 +742,22 @@ export function Turnos() {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+          <BotonDocumento
+            title="Imprimir la hoja de turnos del día seleccionado"
+            onGenerar={() => imprimirListaTurnos({
+              turnos: turnosDia,
+              titulo: 'Agenda de turnos del día',
+              subtitulo: `${fmtFecha(diaSeleccionado)}${filtroMedico ? ` · ${nombreProfesional(medicos.find(m => m.id === filtroMedico))}` : ' · Todos los profesionales'}`,
+              generadoPor: nombreDe(perfil),
+            })}>Día PDF</BotonDocumento>
+          <BotonDocumento
+            title="Imprimir los turnos de toda la semana"
+            onGenerar={() => imprimirListaTurnos({
+              turnos: turnosRango.filter(t => t.estado !== 'cancelado'),
+              titulo: 'Agenda de turnos de la semana',
+              subtitulo: `${fmtFecha(desde)} al ${fmtFecha(hasta)}${filtroMedico ? ` · ${nombreProfesional(medicos.find(m => m.id === filtroMedico))}` : ' · Todos los profesionales'}`,
+              generadoPor: nombreDe(perfil),
+            })}>Semana PDF</BotonDocumento>
           <button
             onClick={() => setModalNuevo(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-[#013FF6] text-white text-sm font-semibold rounded-xl hover:bg-[#0033cc] shadow-lg shadow-[#013FF6]/20 transition-colors"

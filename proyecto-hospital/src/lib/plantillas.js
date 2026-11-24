@@ -232,3 +232,75 @@ export function imprimirFichaPaciente({ paciente, cobertura, generadoPor }) {
     ],
   })
 }
+
+// ── Agenda semanal de atención de los médicos (franjas configuradas) ──
+const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+const ORDEN_DIAS = [1, 2, 3, 4, 5, 6, 0]
+const hhmm = (h) => (h ? String(h).slice(0, 5) : '—')
+const cantidadTurnos = (a) => {
+  const min = (h) => { const [x, y] = hhmm(h).split(':').map(Number); return x * 60 + y }
+  const total = min(a.horaFin) - min(a.horaInicio)
+  return total > 0 && a.duracionSlot ? Math.floor(total / a.duracionSlot) : 0
+}
+
+export function filasAgenda(agendas) {
+  return [...agendas]
+    .sort((a, b) => ORDEN_DIAS.indexOf(a.diaSemana) - ORDEN_DIAS.indexOf(b.diaSemana) || String(a.horaInicio).localeCompare(String(b.horaInicio)))
+    .map(a => [DIAS[a.diaSemana], `${hhmm(a.horaInicio)} a ${hhmm(a.horaFin)} hs`, `${a.duracionSlot} min`, cantidadTurnos(a), a.activo ? 'Activa' : 'Pausada'])
+}
+
+export function imprimirAgendaMedica({ agendas, generadoPor }) {
+  const porMedico = new Map()
+  agendas.forEach(a => {
+    const k = a.medicoId
+    if (!porMedico.has(k)) porMedico.set(k, { medico: a.medico, franjas: [] })
+    porMedico.get(k).franjas.push(a)
+  })
+  const secciones = [...porMedico.values()]
+    .sort((x, y) => String(x.medico?.apellido).localeCompare(String(y.medico?.apellido)))
+    .map(({ medico, franjas }) => ({
+      titulo: nombreMedico(medico),
+      html: bloques.tabla(['Día', 'Franja horaria', 'Duración del turno', 'Turnos por franja', 'Estado'], filasAgenda(franjas), { alinearDerecha: [3] }),
+    }))
+  imprimirDocumento({
+    titulo: 'Agenda de atención médica',
+    nombreArchivo: 'Agenda medica',
+    subtitulo: 'Días y franjas horarias de atención por profesional',
+    generadoPor,
+    secciones: secciones.length ? secciones : [{ html: bloques.parrafo('No hay franjas cargadas.') }],
+  })
+}
+
+// ── Horarios del personal (turnos de trabajo) ───────────────────────
+export function imprimirHorariosPersonal({ horarios, desde, hasta, titulo = 'Horarios del personal', generadoPor }) {
+  const TIPOS = { fijo: 'Fijo', guardia: 'Guardia', asignado: 'Asignado' }
+  const fecha = (f) => new Date(f + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: '2-digit' })
+  imprimirDocumento({
+    titulo,
+    nombreArchivo: titulo,
+    subtitulo: desde && hasta ? `Período: ${fmtFecha(desde)} al ${fmtFecha(hasta)}` : undefined,
+    generadoPor,
+    secciones: [{
+      html: bloques.tabla(
+        ['Fecha', 'Horario', 'Persona', 'Rol', 'Tipo'],
+        horarios.map(h => [fecha(h.fecha), `${hhmm(h.horaInicio)} a ${hhmm(h.horaFin)} hs`, h.usuario ? `${h.usuario.apellido}, ${h.usuario.nombre}` : '—', h.usuario?.rol || '—', TIPOS[h.tipo] || h.tipo])),
+    }],
+  })
+}
+
+// ── Listado de turnos de un día o de una semana (hoja de trabajo) ───
+export function imprimirListaTurnos({ turnos, titulo, subtitulo, generadoPor }) {
+  const ordenados = [...turnos].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.horaInicio.localeCompare(b.horaInicio))
+  imprimirDocumento({
+    titulo,
+    nombreArchivo: titulo,
+    subtitulo,
+    generadoPor,
+    secciones: [{
+      titulo: `${ordenados.length} ${ordenados.length === 1 ? 'turno' : 'turnos'}`,
+      html: bloques.tabla(
+        ['Fecha', 'Hora', 'Paciente', 'DNI', 'Teléfono', 'Profesional', 'Motivo', 'Estado'],
+        ordenados.map(t => [fmtFecha(t.fecha), hhmm(t.horaInicio), nombreCompleto(t.paciente), t.paciente?.dni || '—', t.paciente?.telefono || '—', nombreMedico(t.medico), t.motivo || '—', etiquetaEstado(t.estado)])),
+    }],
+  })
+}

@@ -2,11 +2,15 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   CalendarDays, Plus, Edit2, Trash2, X, Save,
   Loader2, CheckCircle2, AlertCircle, RefreshCw,
-  Stethoscope, Clock, ToggleLeft, ToggleRight,
+  Stethoscope, Clock, ToggleLeft, ToggleRight, FileDown,
 } from 'lucide-react'
 import {
   getTodasAgendas, createAgenda, updateAgenda, deleteAgenda, getMedicos,
 } from '../../services/turnoService'
+import { useAuth } from '../context/AuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { imprimirAgendaMedica, filasAgenda } from '../../lib/plantillas'
+import { descargarCSV, nombreDe } from '../../lib/documentos'
 
 // ── Constantes ────────────────────────────────────────────────
 const DIAS_SEMANA = [
@@ -260,6 +264,7 @@ function ModalAgenda({ agenda, medicos, onClose, onSave }) {
 
 // ── Componente principal ──────────────────────────────────────
 export function GestionAgenda() {
+  const { perfil } = useAuth()
   const [agendas, setAgendas]       = useState([])
   const [medicos, setMedicos]       = useState([])
   const [loading, setLoading]       = useState(true)
@@ -345,7 +350,11 @@ export function GestionAgenda() {
             Configurá los horarios de atención de cada médico
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <BotonDocumento onGenerar={() => imprimirAgendaMedica({ agendas: filtered, generadoPor: nombreDe(perfil) })}>Agenda PDF</BotonDocumento>
+          <BotonDocumento icon={FileDown} onGenerar={() => descargarCSV('agenda_medica',
+            ['Médico', 'Día', 'Franja horaria', 'Duración del turno', 'Turnos por franja', 'Estado'],
+            filtered.flatMap(a => filasAgenda([a]).map(f => [`${a.medico?.apellido}, ${a.medico?.nombre}`, ...f])))}>Excel (CSV)</BotonDocumento>
           <button
             onClick={fetchAgendas}
             disabled={loading}

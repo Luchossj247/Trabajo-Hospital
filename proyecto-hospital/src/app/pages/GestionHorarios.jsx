@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
-import { CalendarClock, Plus, Trash2, Loader2, Repeat, Check, X, AlertTriangle, CheckCircle2, Save } from 'lucide-react'
+import { CalendarClock, Plus, Trash2, Loader2, Repeat, Check, X, AlertTriangle, CheckCircle2, Save, FileDown } from 'lucide-react'
 import {
   getHorarios, crearHorario, eliminarHorario, getPersonal,
   getCambiosHorario, solicitarCambio, resolverCambio,
 } from '../../services/horarioService'
 import { useAuth } from '../context/AuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { imprimirHorariosPersonal } from '../../lib/plantillas'
+import { descargarCSV, nombreDe, fmtFecha } from '../../lib/documentos'
 
 const TIPOS = { fijo: 'Fijo', guardia: 'Guardia', asignado: 'Asignado' }
 const ESTADO_CAMBIO = {
@@ -160,11 +163,24 @@ export function GestionHorarios() {
           </h1>
           <p className="text-slate-500 mt-1">{esAdmin ? 'Horarios del personal (próximos 30 días)' : 'Tus horarios de los próximos 30 días'}</p>
         </div>
-        {esAdmin && (
-          <button onClick={() => setModalNuevo(true)} className="flex items-center gap-2 px-4 py-2.5 bg-[#013FF6] text-white text-sm font-semibold rounded-xl hover:bg-[#0033cc] shadow-lg shadow-[#013FF6]/20">
-            <Plus className="h-4 w-4" /> Nuevo horario
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {horarios.length > 0 && (
+            <>
+              <BotonDocumento onGenerar={() => imprimirHorariosPersonal({
+                horarios, desde: iso(new Date()), hasta: iso(new Date(Date.now() + 30 * 864e5)),
+                titulo: esAdmin ? 'Horarios del personal' : 'Mis horarios', generadoPor: nombreDe(perfil),
+              })}>Horarios PDF</BotonDocumento>
+              <BotonDocumento icon={FileDown} onGenerar={() => descargarCSV('horarios',
+                ['Fecha', 'Hora de inicio', 'Hora de fin', 'Persona', 'Rol', 'Tipo'],
+                horarios.map(h => [fmtFecha(h.fecha), h.horaInicio.slice(0, 5), h.horaFin.slice(0, 5), h.usuario ? `${h.usuario.apellido}, ${h.usuario.nombre}` : '', h.usuario?.rol || '', TIPOS[h.tipo] || h.tipo]))}>Excel (CSV)</BotonDocumento>
+            </>
+          )}
+          {esAdmin && (
+            <button onClick={() => setModalNuevo(true)} className="flex items-center gap-2 px-4 py-2.5 bg-[#013FF6] text-white text-sm font-semibold rounded-xl hover:bg-[#0033cc] shadow-lg shadow-[#013FF6]/20">
+              <Plus className="h-4 w-4" /> Nuevo horario
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2">
