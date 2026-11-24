@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { Calendar, Loader2, Clock, User, CalendarPlus } from 'lucide-react'
 import { getTurnos } from '../../services/turnoService'
 import { usePacienteAuth } from '../context/PacienteAuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { imprimirComprobanteTurno } from '../../lib/plantillas'
 
 const ESTADO_TURNO = {
   programado: { label: 'Programado', bg: '#dbeafe', color: '#2563eb' },
@@ -50,6 +52,10 @@ export function PacienteTurnos() {
         <span className="text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0" style={{ backgroundColor: est.bg, color: est.color }}>
           {est.label}
         </span>
+        {t.estado !== 'cancelado' && (
+          <BotonDocumento compact title="Descargar comprobante del turno"
+            onGenerar={() => imprimirComprobanteTurno({ turno: { ...t, paciente } })} />
+        )}
       </div>
     )
   }

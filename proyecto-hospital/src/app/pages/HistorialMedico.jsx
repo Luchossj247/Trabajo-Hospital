@@ -9,6 +9,10 @@ import {
   crearAtencion, subirDocumentoClinico, abrirDocumento,
 } from '../../services/historialClinicoService'
 import { useAuth } from '../context/AuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { exportarHistorialClinico } from '../../services/documentosService'
+import { imprimirConstanciaAtencion } from '../../lib/plantillas'
+import { nombreDe } from '../../lib/documentos'
 
 const ESTADO_ATENCION = {
   en_curso: { label: 'En curso', bg: '#dbeafe', color: '#2563eb' },
@@ -212,6 +216,7 @@ function DetalleHistorial({ paciente, onVolver, medicoId, showToast }) {
   const [savingObs, setSavingObs] = useState(false)
   const [modalAtencion, setModalAtencion]   = useState(false)
   const [modalDocumento, setModalDocumento] = useState(false)
+  const { perfil } = useAuth()
 
   const fetchHistorial = useCallback(async () => {
     setLoading(true)
@@ -262,6 +267,7 @@ function DetalleHistorial({ paciente, onVolver, medicoId, showToast }) {
             <AlertTriangle className="h-3.5 w-3.5" /> Alergia: {paciente.alergias}
           </div>
         )}
+        <BotonDocumento onGenerar={() => exportarHistorialClinico(paciente.id, nombreDe(perfil))}>Historial en PDF</BotonDocumento>
       </div>
 
       {/* Observaciones generales (editable) */}
@@ -312,6 +318,8 @@ function DetalleHistorial({ paciente, onVolver, medicoId, showToast }) {
                     style={{ backgroundColor: est.bg, color: est.color }}>
                     {est.label}
                   </span>
+                  <BotonDocumento compact title="Imprimir constancia de atención"
+                    onGenerar={() => imprimirConstanciaAtencion({ paciente, atencion: a, generadoPor: nombreDe(perfil) })} />
                 </div>
               )
             })}

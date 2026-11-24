@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { FileText, Activity, Calendar, Loader2, ShieldAlert } from 'lucide-react'
 import { getHistorialCompleto } from '../../services/historialClinicoService'
 import { usePacienteAuth } from '../context/PacienteAuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { exportarHistorialClinico } from '../../services/documentosService'
+import { imprimirConstanciaAtencion } from '../../lib/plantillas'
 
 const ESTADO_ATENCION = {
   en_curso: { label: 'En curso', bg: '#dbeafe', color: '#2563eb' },
@@ -30,11 +33,14 @@ export function PacienteHistorial() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
-          <FileText className="h-8 w-8 text-[#013FF6]" /> Mi Historial Clínico
-        </h1>
-        <p className="text-slate-500 mt-1">Solo lectura — la información la carga el equipo médico</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+            <FileText className="h-8 w-8 text-[#013FF6]" /> Mi Historial Clínico
+          </h1>
+          <p className="text-slate-500 mt-1">Solo lectura — la información la carga el equipo médico</p>
+        </div>
+        <BotonDocumento onGenerar={() => exportarHistorialClinico(paciente.id)}>Descargar mi historial (PDF)</BotonDocumento>
       </div>
 
       {loading ? (
@@ -87,6 +93,8 @@ export function PacienteHistorial() {
                         style={{ backgroundColor: est.bg, color: est.color }}>
                         {est.label}
                       </span>
+                      <BotonDocumento compact title="Descargar constancia de atención"
+                        onGenerar={() => imprimirConstanciaAtencion({ paciente, atencion: a })} />
                     </div>
                   )
                 })}

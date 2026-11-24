@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { CalendarPlus, Loader2, CheckCircle2, AlertCircle, Clock, CalendarX, X } from 'lucide-react'
 import { getMedicos, getSlotsDisponibles, createTurno } from '../../services/turnoService'
 import { usePacienteAuth } from '../context/PacienteAuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { imprimirComprobanteTurno } from '../../lib/plantillas'
 
 function isoDate(d) { return d.toISOString().split('T')[0] }
 
@@ -89,10 +91,15 @@ export function PacienteReservarTurno() {
           <p className="text-sm"><span className="font-semibold text-slate-700">Fecha:</span> {new Date(fecha + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           <p className="text-sm"><span className="font-semibold text-slate-700">Horario:</span> {slotElegido.horaInicio}</p>
         </div>
-        <button onClick={() => { setConfirmado(null); setSlotElegido(null); setMotivo('') }}
-          className="mt-6 text-sm font-semibold text-[#013FF6] hover:underline">
-          Reservar otro turno
-        </button>
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <BotonDocumento onGenerar={() => imprimirComprobanteTurno({ turno: { ...confirmado, paciente, medico } })}>
+            Descargar comprobante (PDF)
+          </BotonDocumento>
+          <button onClick={() => { setConfirmado(null); setSlotElegido(null); setMotivo('') }}
+            className="text-sm font-semibold text-[#013FF6] hover:underline">
+            Reservar otro turno
+          </button>
+        </div>
       </div>
     )
   }

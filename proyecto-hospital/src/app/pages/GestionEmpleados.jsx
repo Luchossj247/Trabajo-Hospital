@@ -6,8 +6,10 @@ import {
 import {
   Shield, Plus, Search, Edit2, Trash2, X, Save, Loader2,
   Stethoscope, Users, Pill, ClipboardList, CheckCircle2,
-  AlertCircle, RefreshCw, KeyRound,
+  AlertCircle, RefreshCw, KeyRound, FileDown,
 } from 'lucide-react'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { descargarCSV, fmtFecha } from '../../lib/documentos'
 
 // ── Constantes ────────────────────────────────────────────────
 const ROLES = [
@@ -232,6 +234,13 @@ export function GestionEmpleados() {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+          <BotonDocumento
+            icon={FileDown}
+            title="Descargar el listado que ves en pantalla (se abre con Excel)"
+            onGenerar={() => descargarCSV('personal',
+              ['Apellido', 'Nombre', 'Email', 'Rol', 'Estado', 'Alta'],
+              filtered.map(u => [u.apellido, u.nombre, u.email, u.rol, u.activo === false ? 'Inactivo' : 'Activo', fmtFecha(u.createdAt)]))}
+          >Exportar</BotonDocumento>
           <button
             onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2.5 bg-[#013FF6] text-white text-sm

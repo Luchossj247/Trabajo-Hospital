@@ -5,6 +5,10 @@ import {
   XCircle, DollarSign, ChevronRight, X, Save,
   Loader2, Download, RefreshCw, Plus, User, ChevronDown,
 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { imprimirComprobanteFactura } from '../../lib/plantillas'
+import { nombreDe } from '../../lib/documentos'
 
 // ── Mapeos según los CHECK constraints de la BD ───────────────
 const ESTADO_COBERTURA = {
@@ -393,6 +397,7 @@ function ModalCrearFactura({ onClose, onCreated }) {
 
 // ── Modal de gestión (editar) ─────────────────────────────────
 function ModalFactura({ factura, onClose, onSave }) {
+  const { perfil } = useAuth()
   const [form, setForm] = useState({
     estadoCobertura: factura.estadoCobertura ?? 'pendiente_verificacion',
     estadoPago:      factura.estadoPago      ?? 'pendiente',
@@ -563,7 +568,13 @@ function ModalFactura({ factura, onClose, onSave }) {
           </div>
         </div>
 
-        <div className="flex gap-3 mt-6">
+        <div className="mt-5 flex justify-end">
+          <BotonDocumento onGenerar={() => imprimirComprobanteFactura({ factura, generadoPor: nombreDe(perfil) })}>
+            Imprimir comprobante
+          </BotonDocumento>
+        </div>
+
+        <div className="flex gap-3 mt-4">
           <button
             onClick={onClose}
             className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"

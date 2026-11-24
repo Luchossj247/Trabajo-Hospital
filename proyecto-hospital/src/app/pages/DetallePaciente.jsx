@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getPacienteById, updatePaciente, updateCobertura, generarCodigoActivacion } from '../../services/pacienteService'
 import { useAuth } from '../context/AuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { exportarFichaPaciente, exportarHistorialClinico } from '../../services/documentosService'
+import { nombreDe } from '../../lib/documentos'
 import {
   User, Phone, CreditCard, FileText, ArrowLeft,
   Edit2, Save, X, Loader2, CheckCircle2, XCircle,
@@ -211,6 +214,12 @@ export function DetallePaciente() {
             DNI {paciente.dni} · {calcularEdad(paciente.fechaNacimiento)} ·{' '}
             {paciente.sexo === 'M' ? 'Masculino' : paciente.sexo === 'F' ? 'Femenino' : 'Otro'}
           </p>
+        </div>
+        <div className="flex items-start gap-2 flex-wrap justify-end">
+          <BotonDocumento onGenerar={() => exportarFichaPaciente(paciente.id, nombreDe(perfil))}>Ficha en PDF</BotonDocumento>
+          {['administrador', 'medico', 'enfermero', 'recepcionista'].includes(perfil?.rol) && (
+            <BotonDocumento onGenerar={() => exportarHistorialClinico(paciente.id, nombreDe(perfil))}>Historial en PDF</BotonDocumento>
+          )}
         </div>
       </div>
 

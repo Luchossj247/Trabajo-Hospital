@@ -11,6 +11,9 @@ import {
 import { searchPacientes } from '../../services/pacienteService'
 import { crearReceta } from '../../services/recetaService'
 import { useAuth } from '../context/AuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { imprimirReceta } from '../../lib/plantillas'
+import { nombreDe } from '../../lib/documentos'
 
 // ── Niveles de triaje (estilo ESI/Manchester) ─────────────────────
 const NIVELES = [
@@ -356,7 +359,8 @@ function ModalComentarios({ guardia, onClose, usuarioId }) {
 }
 
 // ── Modal: recetar medicamentos (solo si el paciente está en_atencion) ────
-function ModalRecetar({ guardia, medicoId, onClose, onCreated }) {
+function ModalRecetar({ guardia, medicoId, medico, onClose, onCreated }) {
+  const [creada, setCreada] = useState(null)
   const [items, setItems] = useState([{ medicamentoNombre: '', dosis: '', frecuencia: '', indicaciones: '' }])
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
@@ -374,10 +378,38 @@ function ModalRecetar({ guardia, medicoId, onClose, onCreated }) {
     try {
       const receta = await crearReceta({ guardiaId: guardia.id, medicoId, items: validos })
       onCreated(receta)
-      onClose()
+      setCreada({ receta, items: validos }) // se queda abierto para poder imprimir la receta
     } catch (err) {
       setError(err.message || 'Error al generar la receta.')
     } finally { setSaving(false) }
+  }
+
+  if (creada) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Receta enviada a Farmacia</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              {creada.items.length} {creada.items.length === 1 ? 'medicamento' : 'medicamentos'} para {guardia.paciente?.nombre} {guardia.paciente?.apellido}.
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-3">
+            <BotonDocumento onGenerar={() => imprimirReceta({
+              receta: creada.receta,
+              paciente: guardia.paciente,
+              medico,
+              items: creada.items,
+              generadoPor: nombreDe(medico),
+            })}>Imprimir receta (PDF)</BotonDocumento>
+            <button onClick={onClose} className="text-sm font-semibold text-slate-500 hover:text-slate-700">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -606,6 +638,7 @@ export function Triaje() {
         <ModalRecetar
           guardia={modalRecetar}
           medicoId={perfil?.id}
+          medico={perfil}
           onClose={() => setModalRecetar(null)}
           onCreated={() => showToast('Receta enviada a Farmacia.')}
         />

@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPacientes, searchPacientes } from '../../services/pacienteService'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { descargarCSV, fmtFecha, etiquetaEstado, SEXO } from '../../lib/documentos'
 import {
   UserPlus, Search, User, CheckCircle2, XCircle,
-  ChevronRight, Loader2, RefreshCw,
+  ChevronRight, Loader2, RefreshCw, FileDown,
 } from 'lucide-react'
 
 function calcularEdad(fechaNacimiento) {
@@ -79,6 +81,14 @@ export function ListadoPacientes() {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+          <BotonDocumento
+            icon={FileDown}
+            title="Descargar el listado que ves en pantalla (se abre con Excel)"
+            onGenerar={() => descargarCSV('pacientes',
+              ['Apellido', 'Nombre', 'DNI', 'Fecha de nacimiento', 'Sexo', 'Teléfono', 'Email', 'Obra social', 'Estado de cobertura', 'Cuenta en el portal'],
+              pacientes.map(p => [p.apellido, p.nombre, p.dni, fmtFecha(p.fechaNacimiento), SEXO[p.sexo] || '', p.telefono || '', p.email || '',
+                p.coberturaMedica?.[0]?.obraSocial || '', p.coberturaMedica?.[0] ? etiquetaEstado(p.coberturaMedica[0].estadoCobertura) : '', p.usuarioId ? 'Sí' : 'No']))}
+          >Exportar</BotonDocumento>
           <button
             onClick={() => navigate('/empleado/registro/nuevo')}
             className="flex items-center gap-2 px-4 py-2.5 bg-[#013FF6] text-white text-sm

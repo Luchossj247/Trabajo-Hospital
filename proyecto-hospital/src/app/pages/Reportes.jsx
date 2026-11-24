@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   BarChart2, RefreshCw, Loader2, BedDouble, HeartPulse, Receipt,
-  Ambulance, ShieldAlert,
+  Ambulance, ShieldAlert, FileDown, Printer,
 } from 'lucide-react'
 import {
   getOcupacionCamas, getPacientesAtendidos, getFacturacionResumen,
 } from '../../services/reportesService'
+import { useAuth } from '../context/AuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { imprimirDocumento, descargarCSV, bloques, nombreDe } from '../../lib/documentos'
 
 const RANGOS = [
   { value: 'hoy',  label: 'Hoy',      dias: 0 },
@@ -75,6 +78,7 @@ function BarraDesglose({ items }) {
 }
 
 export function Reportes() {
+  const { perfil } = useAuth()
   const [rango, setRango]         = useState('7d')
   const [ocupacion, setOcupacion] = useState(null)
   const [pacientes, setPacientes] = useState(null)
@@ -113,6 +117,70 @@ export function Reportes() {
     ? Math.round((ocupacion.totales.ocupada / ocupacion.totales.total) * 100)
     : 0
 
+  const listo = !loading && ocupacion && pacientes && facturacion
+  const rangoLabel = RANGOS.find(r => r.value === rango)?.label ?? ''
+  const porNivel = () => Object.entries(pacientes.porNivel)
+    .sort(([a], [b]) => (a === 'sin_evaluar' ? 99 : +a) - (b === 'sin_evaluar' ? 99 : +b))
+    .map(([n, c]) => [NIVEL_LABEL[n] || n, c])
+
+  const exportarPDF = () => imprimirDocumento({
+    titulo: 'Reporte de gestión hospitalaria',
+    nombreArchivo: `Reporte ${rangoLabel}`,
+    subtitulo: `Período analizado: ${rangoLabel === 'Hoy' ? 'hoy' : `últimos ${rangoLabel}`} · La ocupación de camas es al momento de la emisión`,
+    generadoPor: nombreDe(perfil),
+    secciones: [
+      {
+        titulo: 'Ocupación de camas',
+        html: bloques.datos([
+          ['Ocupación general', `${pctOcupacion}% (${ocupacion.totales.ocupada} de ${ocupacion.totales.total} camas)`],
+          ['Disponibles', ocupacion.totales.disponible],
+          ['En mantenimiento', ocupacion.totales.mantenimiento],
+        ]) + '<div style="height:8px"></div>' + bloques.tabla(
+          ['Sector', 'Total', 'Ocupadas', 'Disponibles', 'En mantenimiento'],
+          ocupacion.porSector.map(s => [s.sector, s.total, s.ocupada, s.disponible, s.mantenimiento]), { alinearDerecha: [1, 2, 3, 4] }),
+      },
+      {
+        titulo: 'Pacientes atendidos',
+        html: bloques.datos([
+          ['Total en el período', pacientes.total],
+          ['Dados de alta', pacientes.porEstado?.alta ?? 0],
+          ['Derivados', pacientes.porEstado?.derivado ?? 0],
+        ]) + '<div style="height:8px"></div>' + bloques.tabla(['Nivel de triaje', 'Pacientes'], porNivel(), { alinearDerecha: [1] })
+          + '<div style="height:8px"></div>' + bloques.tabla(['Medio de ingreso', 'Pacientes'], Object.entries(pacientes.porMedioIngreso), { alinearDerecha: [1] }),
+      },
+      {
+        titulo: 'Facturación',
+        html: bloques.datos([
+          ['Total facturado', `${fmtMoneda(facturacion.totales.montoTotal)} (${facturacion.cantidadFacturas} facturas)`],
+          ['A cargo de obra social', fmtMoneda(facturacion.totales.montoObraSocial)],
+          ['A cargo del paciente', fmtMoneda(facturacion.totales.montoPaciente)],
+        ]) + '<div style="height:8px"></div>' + bloques.tabla(['Estado de pago', 'Facturas'],
+          Object.entries(facturacion.porEstadoPago).map(([e, c]) => [ESTADO_PAGO_LABEL[e] || e, c]), { alinearDerecha: [1] })
+          + '<div style="height:8px"></div>' + bloques.tabla(['Cobertura', 'Facturas'],
+          Object.entries(facturacion.porCobertura).map(([e, c]) => [ESTADO_COBERTURA_LABEL[e] || e, c]), { alinearDerecha: [1] }),
+      },
+    ],
+  })
+
+  const exportarCSV = () => {
+    const filas = [
+      ...ocupacion.porSector.flatMap(s => [
+        ['Ocupación de camas', `${s.sector} — ocupadas`, s.ocupada], ['Ocupación de camas', `${s.sector} — disponibles`, s.disponible], ['Ocupación de camas', `${s.sector} — total`, s.total]]),
+      ['Pacientes atendidos', 'Total en el período', pacientes.total],
+      ['Pacientes atendidos', 'Dados de alta', pacientes.porEstado?.alta ?? 0],
+      ['Pacientes atendidos', 'Derivados', pacientes.porEstado?.derivado ?? 0],
+      ...porNivel().map(([n, c]) => ['Pacientes por nivel de triaje', n, c]),
+      ...Object.entries(pacientes.porMedioIngreso).map(([m, c]) => ['Pacientes por medio de ingreso', m, c]),
+      ['Facturación', 'Total facturado', facturacion.totales.montoTotal],
+      ['Facturación', 'A cargo de obra social', facturacion.totales.montoObraSocial],
+      ['Facturación', 'A cargo del paciente', facturacion.totales.montoPaciente],
+      ['Facturación', 'Cantidad de facturas', facturacion.cantidadFacturas],
+      ...Object.entries(facturacion.porEstadoPago).map(([e, c]) => ['Facturas por estado de pago', ESTADO_PAGO_LABEL[e] || e, c]),
+      ...Object.entries(facturacion.porCobertura).map(([e, c]) => ['Facturas por cobertura', ESTADO_COBERTURA_LABEL[e] || e, c]),
+    ]
+    descargarCSV(`reporte_${rango}`, ['Sección', 'Indicador', 'Valor'], filas)
+  }
+
   return (
     <div className="space-y-6 max-w-5xl">
       <div className="flex items-end justify-between flex-wrap gap-3">
@@ -132,6 +200,12 @@ export function Reportes() {
               </button>
             ))}
           </div>
+          {listo && (
+            <>
+              <BotonDocumento icon={FileDown} onGenerar={exportarCSV}>Excel (CSV)</BotonDocumento>
+              <BotonDocumento icon={Printer} onGenerar={exportarPDF}>Reporte PDF</BotonDocumento>
+            </>
+          )}
           <button onClick={fetchAll} disabled={loading} className="p-2.5 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>

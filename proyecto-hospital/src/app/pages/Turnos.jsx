@@ -11,6 +11,8 @@ import {
 } from '../../services/turnoService'
 import { searchPacientes } from '../../services/pacienteService'
 import { useAuth } from '../context/AuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { imprimirComprobanteTurno } from '../../lib/plantillas'
 
 // ── Constantes ────────────────────────────────────────────────
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -583,6 +585,9 @@ function TurnoCard({ turno, onEdit, onCancelar, onPasarGuardia }) {
         </div>
 
         {/* Acciones */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <BotonDocumento compact title="Imprimir comprobante de turno" onGenerar={() => imprimirComprobanteTurno({ turno })} />
+        </div>
         {cancelable && (
           <div className="flex items-center gap-1 flex-shrink-0">
             {turno.fecha === isoDate(new Date()) && (
