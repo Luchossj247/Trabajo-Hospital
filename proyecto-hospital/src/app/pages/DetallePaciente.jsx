@@ -38,6 +38,8 @@ export function DetallePaciente() {
   const navigate = useNavigate()
   const { perfil } = useAuth()
   const puedeGenerarCodigo = ['administrador', 'recepcionista'].includes(perfil?.rol)
+  const puedeEditarDni     = ['administrador', 'recepcionista'].includes(perfil?.rol)
+  const puedeEditarClinicos = ['administrador', 'medico'].includes(perfil?.rol)
   const [generando, setGenerando] = useState(false)
 
   const [paciente, setPaciente]           = useState(null)
@@ -64,6 +66,9 @@ export function DetallePaciente() {
         setFormPaciente({
           nombre:                     data.nombre,
           apellido:                   data.apellido,
+          dni:                        data.dni || '',
+          fechaNacimiento:            data.fechaNacimiento || '',
+          sexo:                       data.sexo || 'X',
           telefono:                   data.telefono || '',
           email:                      data.email || '',
           direccion:                  data.direccion || '',
@@ -89,14 +94,29 @@ export function DetallePaciente() {
   }, [id])
 
   const handleSavePaciente = async () => {
+    // Se envían solo los campos que cambiaron ('' se guarda como null) para no pisar
+    // datos que esta persona no tiene permiso de modificar.
+    const obligatorios = ['nombre', 'apellido', 'dni', 'fechaNacimiento', 'sexo']
+    const cambios = {}
+    for (const [k, v] of Object.entries(formPaciente)) {
+      const nuevo = typeof v === 'string' ? v.trim() : v
+      const valor = nuevo === '' && !obligatorios.includes(k) ? null : nuevo
+      if (valor !== (paciente[k] ?? null)) cambios[k] = valor
+    }
+    for (const k of obligatorios) {
+      if (k in cambios && !cambios[k]) return showToast('Nombre, apellido, DNI y fecha de nacimiento son obligatorios.', 'error')
+    }
+    if ('dni' in cambios && !/^\d{7,9}$/.test(cambios.dni)) return showToast('El DNI debe tener entre 7 y 9 dígitos, sin puntos.', 'error')
+    if (Object.keys(cambios).length === 0) { setEditando(false); return }
+
     setSaving(true)
     try {
-      const updated = await updatePaciente(id, formPaciente)
+      const updated = await updatePaciente(id, cambios)
       setPaciente(prev => ({ ...prev, ...updated }))
       setEditando(false)
       showToast('Datos del paciente actualizados.')
     } catch (err) {
-      showToast(err.message || 'Error al guardar.', 'error')
+      showToast(err.code === '23505' ? 'Ya existe otro paciente con ese DNI.' : (err.message || 'Error al guardar.'), 'error')
     } finally {
       setSaving(false)
     }
@@ -266,6 +286,38 @@ export function DetallePaciente() {
           <div className="p-6 grid grid-cols-2 gap-4">
             {editando ? (
               <>
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 mb-1 block">DNI</label>
+                  <input
+                    value={formPaciente.dni || ''}
+                    disabled={!puedeEditarDni || !!paciente.usuarioId}
+                    onChange={e => setFormPaciente(p => ({ ...p, dni: e.target.value.replace(/\D/g, '') }))}
+                    className={`${inputClass} disabled:bg-slate-50 disabled:text-slate-400`}
+                  />
+                  {paciente.usuarioId && <p className="text-[11px] text-slate-400 mt-1">Bloqueado: el paciente ya tiene cuenta en el portal.</p>}
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 mb-1 block">Fecha de nacimiento</label>
+                  <input
+                    type="date"
+                    value={formPaciente.fechaNacimiento || ''}
+                    max={new Date().toISOString().split('T')[0]}
+                    onChange={e => setFormPaciente(p => ({ ...p, fechaNacimiento: e.target.value }))}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 mb-1 block">Sexo</label>
+                  <select
+                    value={formPaciente.sexo || 'X'}
+                    onChange={e => setFormPaciente(p => ({ ...p, sexo: e.target.value }))}
+                    className={selectClass}
+                  >
+                    <option value="M">Masculino</option>
+                    <option value="F">Femenino</option>
+                    <option value="X">Otro / No especifica</option>
+                  </select>
+                </div>
                 {[
                   { label: 'Nombre',    key: 'nombre' },
                   { label: 'Apellido',  key: 'apellido' },
@@ -310,7 +362,8 @@ export function DetallePaciente() {
                   <select
                     value={formPaciente.grupoSanguineo || ''}
                     onChange={e => setFormPaciente(p => ({ ...p, grupoSanguineo: e.target.value }))}
-                    className={selectClass}
+                    disabled={!puedeEditarClinicos}
+                    className={`${selectClass} disabled:bg-slate-50 disabled:text-slate-400`}
                   >
                     <option value="">Desconocido</option>
                     {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(t => (
@@ -323,8 +376,10 @@ export function DetallePaciente() {
                   <input
                     value={formPaciente.alergias || ''}
                     onChange={e => setFormPaciente(p => ({ ...p, alergias: e.target.value }))}
-                    className={inputClass}
+                    disabled={!puedeEditarClinicos}
+                    className={`${inputClass} disabled:bg-slate-50 disabled:text-slate-400`}
                   />
+                  {!puedeEditarClinicos && <p className="text-[11px] text-slate-400 mt-1">Solo médico o administrador.</p>}
                 </div>
               </>
             ) : (
@@ -334,6 +389,7 @@ export function DetallePaciente() {
                   { label: 'Email',                value: paciente.email },
                   { label: 'Dirección',            value: paciente.direccion },
                   { label: 'Fecha de nacimiento',  value: paciente.fechaNacimiento ? new Date(paciente.fechaNacimiento + 'T00:00:00').toLocaleDateString('es-AR') : null },
+                  { label: 'Sexo',                 value: { M: 'Masculino', F: 'Femenino', X: 'Otro / No especifica' }[paciente.sexo] },
                   { label: 'Grupo sanguíneo',      value: paciente.grupoSanguineo },
                   { label: 'Alergias',             value: paciente.alergias },
                   { label: 'Contacto emergencia',  value: paciente.contactoEmergenciaNombre },
