@@ -645,6 +645,34 @@ export function Facturacion() {
       style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
     }).format(n ?? 0)
 
+  // Exporta a CSV las facturas que se ven en pantalla (respeta búsqueda y filtros).
+  // Separador ";" y BOM UTF-8 para que Excel en español lo abra bien (tildes y columnas).
+  const handleExportar = () => {
+    if (filtered.length === 0) return
+    const celda = v => `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`
+    const encabezado = ['Fecha', 'Paciente', 'DNI', 'Estado cobertura', 'Monto total', 'Monto obra social', 'Monto paciente', 'Estado pago', 'Observaciones']
+    const filas = filtered.map(f => [
+      f.createdAt ? new Date(f.createdAt).toLocaleDateString('es-AR') : '',
+      `${f.datosPaciente?.apellido ?? ''}, ${f.datosPaciente?.nombre ?? ''}`,
+      f.datosPaciente?.dni ?? '',
+      f.estadoCobertura ?? '',
+      f.montoTotal ?? 0,
+      f.montoObraSocial ?? 0,
+      f.montoPaciente ?? 0,
+      f.estadoPago ?? '',
+      f.observaciones ?? '',
+    ])
+    const csv = [encabezado, ...filas].map(r => r.map(celda).join(';')).join('\r\n')
+    const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `facturas_${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
   // KPIs
   const totalPendienteCobro = facturas
     .filter(f => f.estadoPago === 'pendiente' || f.estadoPago === 'deuda')
@@ -675,7 +703,11 @@ export function Facturacion() {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600">
+          <button
+            onClick={handleExportar}
+            disabled={loading || filtered.length === 0}
+            title="Descargar las facturas filtradas en CSV (se abre con Excel)"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed">
             <Download className="h-4 w-4" /> Exportar
           </button>
           <button
