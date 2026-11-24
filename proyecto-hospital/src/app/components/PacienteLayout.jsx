@@ -11,19 +11,19 @@ const NAV_ITEMS = [
 ]
 
 export function PacienteLayout() {
-  const { paciente, loading, logout } = usePacienteAuth()
+  const { paciente, logout } = usePacienteAuth()
   const location = useLocation()
   const navigate  = useNavigate()
 
   // Sin "sesión" de paciente → al login del portal
   useEffect(() => {
-    if (!loading && !paciente) navigate('/paciente-login', { replace: true })
-  }, [paciente, loading, navigate])
+    if (!paciente) navigate('/paciente-login', { replace: true })
+  }, [paciente, navigate])
 
-  if (loading || !paciente) return null
+  if (!paciente) return null
 
-  const handleLogout = async () => {
-    await logout()
+  const handleLogout = () => {
+    logout()
     navigate('/')
   }
 
