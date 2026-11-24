@@ -16,7 +16,7 @@ export function PacienteRegistro() {
 
   const [form, setForm] = useState({
     nombre: '', apellido: '', dni: '', fechaNacimiento: '', sexo: '',
-    telefono: '', email: '',
+    telefono: '', email: '', password: '', codigo: '',
   })
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
@@ -29,6 +29,8 @@ export function PacienteRegistro() {
       setError('Completá nombre, apellido, DNI, fecha de nacimiento y sexo.')
       return
     }
+    if (!form.email.trim()) { setError('El email es obligatorio: es tu usuario de acceso.'); return }
+    if (form.password.length < 8) { setError('La contraseña debe tener al menos 8 caracteres.'); return }
     setLoading(true)
     setError('')
     try {
@@ -109,10 +111,22 @@ export function PacienteRegistro() {
                     className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email *</label>
                   <input type="email" value={form.email} onChange={e => setField('email', e.target.value)}
                     className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Contraseña * <span className="font-normal text-slate-400">(mín. 8 caracteres)</span></label>
+                <input type="password" autoComplete="new-password" value={form.password} onChange={e => setField('password', e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Código de activación <span className="font-normal text-slate-400">(solo si ya sos paciente del hospital)</span></label>
+                <input value={form.codigo} onChange={e => setField('codigo', e.target.value.toUpperCase())} placeholder="Ej: A1B2C3D4"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
               </div>
 
               {error && (
@@ -130,7 +144,7 @@ export function PacienteRegistro() {
             </form>
 
             <p className="text-xs text-slate-400 text-center mt-6">
-              Tu obra social y tu historial clínico los va a cargar el hospital en tu primera consulta presencial.
+              Si ya fuiste atendido en el hospital, pedí tu código de activación en recepción para vincular tu historial.
             </p>
           </div>
         </div>

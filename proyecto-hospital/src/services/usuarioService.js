@@ -27,6 +27,7 @@ export async function getUsuarios() {
   const { data, error } = await supabase
     .from('usuario')
     .select('*')
+    .neq('rol', 'paciente')
     .order('createdAt', { ascending: false })
 
   if (error) throw error
@@ -90,6 +91,7 @@ export async function searchUsuarios(query) {
   const { data, error } = await supabase
     .from('usuario')
     .select('*')
+    .neq('rol', 'paciente')
     .or(`nombre.ilike.%${query}%,apellido.ilike.%${query}%,email.ilike.%${query}%`)
     .order('createdAt', { ascending: false })
 

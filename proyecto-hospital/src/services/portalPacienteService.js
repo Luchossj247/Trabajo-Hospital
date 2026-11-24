@@ -1,66 +1,52 @@
 import { supabase } from '../lib/supabaseClient'
 
-// ── "Login" simplificado del portal paciente ─────────────────────────
-// No usa Supabase Auth: verifica DNI + fecha de nacimiento contra la
-// tabla `paciente` y devuelve el registro si coincide. Es un mockup
-// para navegar las pantallas, no un mecanismo de seguridad real —
-// documentado como deuda técnica en la arquitectura.
-export async function loginPaciente(dni, fechaNacimiento) {
+const REGISTER_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/portal-register`
+
+// Trae el paciente vinculado a la sesión actual (RLS ya filtra a "el propio").
+export async function getMiPaciente() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) return null
   const { data, error } = await supabase
     .from('paciente')
-    .select('id, nombre, apellido, dni, fechaNacimiento, sexo, telefono, email, grupoSanguineo, alergias')
-    .eq('dni', dni.trim())
+    .select('*')
+    .eq('usuarioId', session.user.id)
     .maybeSingle()
-
   if (error) throw error
-  if (!data) throw new Error('No encontramos ningún paciente con ese DNI.')
-  if (data.fechaNacimiento !== fechaNacimiento) {
-    throw new Error('La fecha de nacimiento no coincide con la registrada.')
-  }
   return data
 }
 
-// ── Auto-registro de un paciente nuevo desde el portal ────────────────
-// Pensado para quien quiere sacar un turno por primera vez sin pasar
-// por Recepción. Mismo mockup sin autenticación real que loginPaciente:
-// no hay verificación de identidad más allá de que el DNI no exista ya.
-export async function registrarPaciente({ nombre, apellido, dni, fechaNacimiento, sexo, telefono, email }) {
-  const dniLimpio = dni.trim()
+// Login con Supabase Auth (email + contraseña). Rechaza cuentas que no sean de paciente.
+export async function loginPaciente(email, password) {
+  const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
+  if (error) throw new Error('Email o contraseña incorrectos.')
 
-  const { data: existente, error: errCheck } = await supabase
-    .from('paciente')
-    .select('id')
-    .eq('dni', dniLimpio)
-    .maybeSingle()
+  const paciente = await getMiPaciente()
+  if (!paciente) {
+    await supabase.auth.signOut()
+    throw new Error('Esta cuenta no pertenece a un paciente. Si sos empleado, ingresá por el acceso de empleados.')
+  }
+  return paciente
+}
 
-  if (errCheck) throw errCheck
-  if (existente) throw new Error('Ya existe un paciente registrado con ese DNI. Probá ingresar en vez de registrarte.')
+// Alta de cuenta del portal vía Edge Function (usa service_role en el servidor).
+// - Paciente nuevo: se crean paciente + historial + cuenta.
+// - Paciente ya cargado por el hospital: requiere `codigo` de activación entregado en recepción.
+export async function registrarPaciente(datos) {
+  const res = await fetch(REGISTER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify(datos),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.error || 'No se pudo completar el registro.')
 
-  const { data, error } = await supabase
-    .from('paciente')
-    .insert([{
-      nombre: nombre.trim(),
-      apellido: apellido.trim(),
-      dni: dniLimpio,
-      fechaNacimiento,
-      sexo,
-      telefono: telefono?.trim() || null,
-      email: email?.trim() || null,
-    }])
-    .select('id, nombre, apellido, dni, fechaNacimiento, sexo, telefono, email, grupoSanguineo, alergias')
-    .single()
+  // Cuenta creada: iniciamos sesión automáticamente
+  return loginPaciente(datos.email, datos.password)
+}
 
-  if (error) throw error
-
-  // Igual que el alta por Recepción (createPacienteConCobertura): se crea un
-  // historial clínico vacío automáticamente. Sin esto, Historial Clínico
-  // (vista del médico) no tiene dónde guardar observaciones/atenciones para
-  // un paciente que se auto-registró desde el portal.
-  const { error: histError } = await supabase
-    .from('historialClinico')
-    .insert([{ pacienteId: data.id }])
-
-  if (histError) throw histError
-
-  return data
+export async function logoutPaciente() {
+  await supabase.auth.signOut()
 }

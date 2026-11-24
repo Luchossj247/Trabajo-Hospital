@@ -6,6 +6,7 @@ export async function getUsuariosParaMensajear(propioId) {
     .from('usuario')
     .select('id, nombre, apellido, rol, activo')
     .neq('id', propioId)
+    .neq('rol', 'paciente')
     .eq('activo', true)
     .order('nombre')
 

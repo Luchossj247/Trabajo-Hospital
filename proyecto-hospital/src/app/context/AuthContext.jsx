@@ -52,6 +52,17 @@ export function AuthProvider({ children }) {
   const signIn = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
+
+    // Las cuentas de pacientes usan el Portal del Paciente, no el panel de empleados.
+    const p = await loadPerfil(data.user.id)
+    if (!p || p.rol === 'paciente') {
+      await supabase.auth.signOut()
+      throw new Error('Esta cuenta no es de personal del hospital. Ingresá por el Portal del Paciente.')
+    }
+    if (p.activo === false) {
+      await supabase.auth.signOut()
+      throw new Error('Tu usuario está desactivado. Contactá a un administrador.')
+    }
     return data
   }
 

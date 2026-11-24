@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Activity, ArrowLeft, AlertCircle, Loader2, IdCard, Calendar } from 'lucide-react'
+import { Activity, ArrowLeft, AlertCircle, Loader2, Mail, Lock } from 'lucide-react'
 import { loginPaciente } from '../../services/portalPacienteService'
 import { usePacienteAuth } from '../context/PacienteAuthContext'
 
@@ -8,30 +8,25 @@ export function PacienteLogin() {
   const navigate = useNavigate()
   const { setPaciente } = usePacienteAuth()
 
-  const [dni, setDni] = useState('')
-  const [fechaNacimiento, setFechaNacimiento] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e) => {
     e?.preventDefault()
-    if (!dni.trim() || !fechaNacimiento) {
-      setError('Completá tu DNI y fecha de nacimiento.')
+    if (!email.trim() || !password) {
+      setError('Completá tu email y contraseña.')
       return
     }
     setLoading(true)
     setError('')
     try {
-      const paciente = await loginPaciente(dni, fechaNacimiento)
+      const paciente = await loginPaciente(email, password)
       setPaciente(paciente)
       navigate('/paciente')
     } catch (err) {
-      const msg = err.message || 'Error al acceder. Verificá tus datos.'
-      if (msg.includes('No encontramos')) {
-        setError('No encontramos ese DNI registrado. Si es tu primera vez, pedile a Recepción que te registre como paciente antes de ingresar al portal.')
-      } else {
-        setError(msg)
-      }
+      setError(err.message || 'Error al acceder. Verificá tus datos.')
     } finally {
       setLoading(false)
     }
@@ -62,33 +57,26 @@ export function PacienteLogin() {
           </div>
 
           <div className="px-8 py-8">
-            <h2 className="text-xl font-bold text-slate-900 mb-1">Acceso rápido</h2>
-            <p className="text-sm text-slate-400 mb-6">Ingresá tu DNI y fecha de nacimiento para continuar</p>
+            <h2 className="text-xl font-bold text-slate-900 mb-1">Iniciar sesión</h2>
+            <p className="text-sm text-slate-400 mb-6">Ingresá con el email y la contraseña de tu cuenta</p>
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">DNI</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
                 <div className="relative">
-                  <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    value={dni}
-                    onChange={e => setDni(e.target.value)}
-                    placeholder="Sin puntos"
-                    className="w-full pl-9 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
-                  />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="tu@email.com"
+                    className="w-full pl-9 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Fecha de nacimiento</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Contraseña</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="date"
-                    value={fechaNacimiento}
-                    onChange={e => setFechaNacimiento(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40"
-                  />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#013FF6]/40" />
                 </div>
               </div>
 
@@ -110,15 +98,15 @@ export function PacienteLogin() {
             </form>
 
             <p className="text-xs text-slate-400 text-center mt-6">
-              Tus datos deben coincidir con los registrados por el hospital. Si tenés problemas para acceder, contactá a recepción.
+              Si ya sos paciente del hospital y todavía no tenés cuenta, pedí un código de activación en recepción y usalo al registrarte.
             </p>
 
             <div className="mt-4 pt-4 border-t border-slate-100 text-center">
               <p className="text-sm text-slate-500">
-                ¿Primera vez y querés sacar un turno?{' '}
+                ¿No tenés cuenta?{' '}
                 <button type="button" onClick={() => navigate('/paciente-registro')}
                   className="font-semibold text-[#013FF6] hover:underline">
-                  Registrate acá
+                  Crear cuenta
                 </button>
               </p>
             </div>

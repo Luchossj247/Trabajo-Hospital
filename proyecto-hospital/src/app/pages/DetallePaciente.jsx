@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getPacienteById, updatePaciente, updateCobertura } from '../../services/pacienteService'
+import { getPacienteById, updatePaciente, updateCobertura, generarCodigoActivacion } from '../../services/pacienteService'
+import { useAuth } from '../context/AuthContext'
 import {
   User, Phone, CreditCard, FileText, ArrowLeft,
   Edit2, Save, X, Loader2, CheckCircle2, XCircle,
-  AlertTriangle, Activity,
+  AlertTriangle, Activity, KeyRound, Copy,
 } from 'lucide-react'
 
 function calcularEdad(fechaNacimiento) {
@@ -35,6 +36,9 @@ const selectClass = 'flex h-10 w-full rounded-md border border-slate-200 bg-whit
 export function DetallePaciente() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { perfil } = useAuth()
+  const puedeGenerarCodigo = ['administrador', 'recepcionista'].includes(perfil?.rol)
+  const [generando, setGenerando] = useState(false)
 
   const [paciente, setPaciente]           = useState(null)
   const [loading, setLoading]             = useState(true)
@@ -120,6 +124,21 @@ export function DetallePaciente() {
     }
   }
 
+  const handleGenerarCodigo = async () => {
+    setGenerando(true)
+    try {
+      const codigo = await generarCodigoActivacion(paciente.id)
+      setPaciente(prev => ({
+        ...prev,
+        codigoActivacion: codigo,
+        codigoActivacionExpira: new Date(Date.now() + 7 * 864e5).toISOString(),
+      }))
+      showToast('Código generado. Entregáselo al paciente.')
+    } catch (err) {
+      showToast(err.message || 'No se pudo generar el código.', 'error')
+    } finally { setGenerando(false) }
+  }
+
   if (loading) return (
     <div className="space-y-4 max-w-4xl mx-auto">
       {Array(3).fill(0).map((_, i) => (
@@ -173,6 +192,37 @@ export function DetallePaciente() {
             {paciente.sexo === 'M' ? 'Masculino' : paciente.sexo === 'F' ? 'Femenino' : 'Otro'}
           </p>
         </div>
+      </div>
+
+      {/* ── Acceso al Portal del Paciente ───────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-6 py-4 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <KeyRound className="h-5 w-5 text-[#013FF6]" />
+          <h3 className="font-semibold text-[#013FF6]">Portal del Paciente</h3>
+        </div>
+        {paciente.usuarioId ? (
+          <span className="text-sm font-medium text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">Cuenta activa</span>
+        ) : paciente.codigoActivacion && new Date(paciente.codigoActivacionExpira) > new Date() ? (
+          <div className="flex items-center gap-3 flex-wrap">
+            <code className="text-lg font-bold tracking-widest bg-slate-100 px-3 py-1 rounded-lg">{paciente.codigoActivacion}</code>
+            <button onClick={() => navigator.clipboard?.writeText(paciente.codigoActivacion)}
+              className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-[#013FF6]">
+              <Copy className="h-3.5 w-3.5" /> Copiar
+            </button>
+            <span className="text-xs text-slate-400">
+              Vence el {new Date(paciente.codigoActivacionExpira).toLocaleDateString('es-AR')}
+            </span>
+          </div>
+        ) : (
+          <span className="text-sm text-slate-400">Sin cuenta en el portal</span>
+        )}
+        {puedeGenerarCodigo && !paciente.usuarioId && (
+          <button onClick={handleGenerarCodigo} disabled={generando}
+            className="ml-auto flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-[#013FF6] text-white hover:bg-[#0033cc] disabled:opacity-60">
+            {generando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
+            {paciente.codigoActivacion ? 'Generar nuevo código' : 'Generar código de activación'}
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">

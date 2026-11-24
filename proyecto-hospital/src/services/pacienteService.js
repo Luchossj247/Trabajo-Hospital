@@ -144,3 +144,11 @@ export async function updateCobertura(pacienteId, cobertura) {
     return data
   }
 }
+// ── Portal del paciente: código de activación (recepción / admin) ─────
+// Devuelve un código de 8 caracteres válido 7 días. El paciente lo ingresa al
+// crear su cuenta en el portal para vincularla con su historial existente.
+export async function generarCodigoActivacion(pacienteId) {
+  const { data, error } = await supabase.rpc('generar_codigo_activacion', { p_paciente: pacienteId })
+  if (error) throw new Error(error.message)
+  return data
+}

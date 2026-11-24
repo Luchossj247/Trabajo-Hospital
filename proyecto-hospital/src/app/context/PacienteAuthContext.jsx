@@ -1,32 +1,43 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { supabase } from '../../lib/supabaseClient'
+import { getMiPaciente, logoutPaciente } from '../../services/portalPacienteService'
 
 const PacienteAuthContext = createContext(null)
-const STORAGE_KEY = 'hmspro-paciente-portal'
 
-function loadPaciente() {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
+// La sesión del paciente es una sesión real de Supabase Auth (JWT).
+// El paciente se obtiene de la tabla `paciente` vía RLS (solo puede leer el suyo).
 export function PacienteAuthProvider({ children }) {
-  const [paciente, setPacienteState] = useState(loadPaciente)
+  const [paciente, setPaciente] = useState(null)
+  const [loading, setLoading]   = useState(true)
 
-  const setPaciente = (p) => {
-    setPacienteState(p)
-    try {
-      if (p) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(p))
-      else sessionStorage.removeItem(STORAGE_KEY)
-    } catch { /* noop */ }
-  }
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        setPaciente(null)
+        setLoading(false)
+        return
+      }
+      // Cedemos el hilo antes de consultar (mismo motivo que en AuthContext).
+      setTimeout(async () => {
+        try { setPaciente(await getMiPaciente()) }
+        catch { setPaciente(null) }
+        finally { setLoading(false) }
+      }, 0)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
-  const logout = () => setPaciente(null)
+  const logout = useCallback(async () => {
+    await logoutPaciente()
+    setPaciente(null)
+  }, [])
+
+  const refresh = useCallback(async () => {
+    setPaciente(await getMiPaciente())
+  }, [])
 
   return (
-    <PacienteAuthContext.Provider value={{ paciente, setPaciente, logout }}>
+    <PacienteAuthContext.Provider value={{ paciente, setPaciente, loading, logout, refresh }}>
       {children}
     </PacienteAuthContext.Provider>
   )
