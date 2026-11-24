@@ -39,6 +39,7 @@ import { PacienteHistorial } from './pages/PacienteHistorial.jsx'
 import { PacienteTurnos } from './pages/PacienteTurnos.jsx'
 import { PacienteReservarTurno } from './pages/PacienteReservarTurno.jsx'
 import { PacienteResultados } from './pages/PacienteResultados.jsx'
+import { PacienteMisDatos } from './pages/PacienteMisDatos.jsx'
 
 function Placeholder({ title }) {
   return (
@@ -87,6 +88,7 @@ export const router = createBrowserRouter([
       { path: 'reservar-turno',  Component: PacienteReservarTurno },
       { path: 'turnos',          Component: PacienteTurnos },
       { path: 'resultados',      Component: PacienteResultados },
+      { path: 'mis-datos',       Component: PacienteMisDatos },
     ],
   },
   {

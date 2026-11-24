@@ -50,3 +50,23 @@ export async function registrarPaciente(datos) {
 export async function logoutPaciente() {
   await supabase.auth.signOut()
 }
+
+// El paciente solo puede cambiar sus datos de contacto; la base lo impone con un trigger
+// (cualquier otro campo es rechazado), así que acá se envía únicamente esa lista.
+export async function actualizarMisDatos(pacienteId, { telefono, email, direccion, contactoEmergenciaNombre, contactoEmergenciaTelefono }) {
+  const limpio = v => (v?.trim() ? v.trim() : null)
+  const { data, error } = await supabase
+    .from('paciente')
+    .update({
+      telefono: limpio(telefono),
+      email: limpio(email),
+      direccion: limpio(direccion),
+      contactoEmergenciaNombre: limpio(contactoEmergenciaNombre),
+      contactoEmergenciaTelefono: limpio(contactoEmergenciaTelefono),
+    })
+    .eq('id', pacienteId)
+    .select()
+    .single()
+  if (error) throw new Error('No se pudieron guardar los cambios.')
+  return data
+}

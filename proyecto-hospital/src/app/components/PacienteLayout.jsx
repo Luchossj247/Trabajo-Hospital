@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { name: 'Reservar Turno',  href: '/paciente/reservar-turno',   icon: CalendarPlus },
   { name: 'Mis Turnos',      href: '/paciente/turnos',           icon: Calendar },
   { name: 'Mis Resultados',  href: '/paciente/resultados',       icon: FlaskConical },
+  { name: 'Mis Datos',       href: '/paciente/mis-datos',        icon: User },
 ]
 
 export function PacienteLayout() {
