@@ -39,6 +39,8 @@ export async function crearIngresoGuardia({
   pacienteId, medioIngreso, estadoIngreso, comentarioTriage,
   nivelTriage, comentarioAnalisis, enfermeroId,
 }) {
+  if (!nivelTriage) throw new Error('Indicá el nivel de triaje (1 a 5).')
+
   const { data, error } = await supabase
     .from('guardia')
     .insert([{
@@ -46,7 +48,7 @@ export async function crearIngresoGuardia({
       medioIngreso,
       estadoIngreso: estadoIngreso || null,
       comentarioTriage: comentarioTriage || null,
-      nivelTriage: nivelTriage || null,
+      nivelTriage,
       comentarioAnalisis: comentarioAnalisis || null,
       enfermeroId: enfermeroId || null,
       estado: 'en_espera',
@@ -54,7 +56,11 @@ export async function crearIngresoGuardia({
     .select(`*, paciente:pacienteId ( id, nombre, apellido, dni )`)
     .single()
 
-  if (error) throw error
+  if (error) {
+    // 23505: índice único "una sola guardia activa por paciente"
+    if (error.code === '23505') throw new Error('Este paciente ya tiene una guardia activa (en espera, en atención o internado).')
+    throw error
+  }
   return data
 }
 
@@ -75,6 +81,17 @@ export async function actualizarTriaje(id, campos) {
 
 // ── Cambiar estado clínico (en_atencion / internado / alta / derivado) ──
 export async function cambiarEstadoGuardia(id, estado, medicoId = null) {
+  // Si el paciente está internado y se le da de alta/deriva, hay que liberar la cama:
+  // se cierra la internación activa de forma atómica antes de actualizar la guardia.
+  if (['alta', 'derivado'].includes(estado)) {
+    const { data: internacion } = await supabase
+      .from('internacion').select('id').eq('guardiaId', id).eq('estado', 'activa').maybeSingle()
+    if (internacion) {
+      const { error: errInt } = await supabase.rpc('finalizar_internacion', { p_internacion: internacion.id })
+      if (errInt) throw new Error(errInt.message)
+    }
+  }
+
   const campos = { estado, updatedAt: new Date().toISOString() }
   if (['alta', 'derivado'].includes(estado)) campos.egresoAt = new Date().toISOString()
   if (medicoId) campos.medicoId = medicoId

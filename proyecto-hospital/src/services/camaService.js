@@ -59,38 +59,28 @@ export async function getGuardiasSinCama() {
   const { data, error } = await supabase
     .from('guardia')
     .select(`id, nivelTriage, paciente:pacienteId ( id, nombre, apellido, dni )`)
-    .in('estado', ['en_atencion', 'internado'])
+    .in('estado', ['en_espera', 'en_atencion'])
     .order('nivelTriage', { ascending: true, nullsFirst: false })
 
   if (error) throw error
   return data
 }
 
-// ── Internación (asignar cama a un paciente) ─────────────────────
+// ── Internación: operaciones atómicas en el servidor (RPC) ───────
+// crear_internacion: bloquea la cama, valida estados, crea la internación,
+// marca la cama "ocupada" y la guardia "internado" en una sola transacción.
 export async function crearInternacion({ guardiaId, camaId, medicoId }) {
-  const { data, error } = await supabase
-    .from('internacion')
-    .insert([{ guardiaId, camaId, medicoId, estado: 'activa' }])
-    .select()
-    .single()
-  if (error) throw error
-
-  await supabase.from('cama').update({ estado: 'ocupada' }).eq('id', camaId)
-  await supabase.from('guardia').update({ estado: 'internado' }).eq('id', guardiaId)
-
+  const { data, error } = await supabase.rpc('crear_internacion', {
+    p_guardia: guardiaId, p_cama: camaId, p_medico: medicoId,
+  })
+  if (error) throw new Error(error.message)
   return data
 }
 
-export async function finalizarInternacion(internacionId, camaId) {
-  const { data, error } = await supabase
-    .from('internacion')
-    .update({ estado: 'alta', fin: new Date().toISOString() })
-    .eq('id', internacionId)
-    .select()
-    .single()
-  if (error) throw error
-
-  await supabase.from('cama').update({ estado: 'disponible' }).eq('id', camaId)
-
+// finalizar_internacion: cierra la internación, libera la cama y pasa la
+// guardia a "alta" con fecha de egreso (así Reportes no queda inconsistente).
+export async function finalizarInternacion(internacionId) {
+  const { data, error } = await supabase.rpc('finalizar_internacion', { p_internacion: internacionId })
+  if (error) throw new Error(error.message)
   return data
 }

@@ -52,7 +52,7 @@ function ModalCama({ cama, equipos, guardias, onClose, onChanged, medicoId }) {
     if (!confirm('¿Finalizar la internación y liberar la cama?')) return
     setSaving(true)
     try {
-      await finalizarInternacion(internacionActiva.id, cama.id)
+      await finalizarInternacion(internacionActiva.id)
       onChanged()
       onClose()
     } catch (err) { setError(err.message) }
