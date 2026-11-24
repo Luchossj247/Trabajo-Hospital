@@ -8,6 +8,9 @@ import {
   actualizarCama, getGuardiasSinCama, crearInternacion, finalizarInternacion,
 } from '../../services/camaService'
 import { useAuth } from '../context/AuthContext'
+import { BotonDocumento } from '../components/BotonDocumento'
+import { exportarEpicrisis } from '../../services/documentosService'
+import { nombreDe } from '../../lib/documentos'
 
 const ESTADOS = {
   disponible:    { label: 'Disponible',    color: '#22c55e', bg: '#dcfce7' },
@@ -28,7 +31,7 @@ function Toast({ msg, type, onClose }) {
 }
 
 // ── Modal detalle / asignación de cama ─────────────────────────────
-function ModalCama({ cama, equipos, guardias, onClose, onChanged, medicoId }) {
+function ModalCama({ cama, equipos, guardias, onClose, onChanged, medicoId, perfil }) {
   const [guardiaSel, setGuardiaSel] = useState('')
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState('')
@@ -86,6 +89,7 @@ function ModalCama({ cama, equipos, guardias, onClose, onChanged, medicoId }) {
 
         {/* Paciente internado */}
         {internacionActiva ? (
+          <>
           <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-red-500" />
@@ -98,6 +102,15 @@ function ModalCama({ cama, equipos, guardias, onClose, onChanged, medicoId }) {
               <LogOut className="h-3.5 w-3.5" /> Dar de alta
             </button>
           </div>
+          {['administrador', 'medico', 'enfermero'].includes(perfil?.rol) && (
+            <div className="mb-4">
+              <BotonDocumento className="w-full justify-center !py-2 !text-xs"
+                onGenerar={() => exportarEpicrisis(internacionActiva.id, nombreDe(perfil))}>
+                Resumen de internación (PDF)
+              </BotonDocumento>
+            </div>
+          )}
+          </>
         ) : cama.estado === 'disponible' ? (
           <div className="mb-4 space-y-2">
             <label className="block text-sm font-semibold text-slate-700">Asignar paciente en espera de cama</label>
@@ -274,7 +287,7 @@ export function ControlCamas() {
       {selected && (
         <ModalCama
           cama={selected} equipos={equipos} guardias={guardias}
-          onClose={() => setSelected(null)} onChanged={fetchAll} medicoId={perfil?.id}
+          onClose={() => setSelected(null)} onChanged={fetchAll} medicoId={perfil?.id} perfil={perfil}
         />
       )}
     </div>

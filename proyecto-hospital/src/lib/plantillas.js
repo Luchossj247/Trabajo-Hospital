@@ -304,3 +304,161 @@ export function imprimirListaTurnos({ turnos, titulo, subtitulo, generadoPor }) 
     }],
   })
 }
+
+
+// ── Comprobante de entrega de medicamentos (farmacia) ────────────
+export function imprimirComprobanteEntrega({ pedido, generadoPor }) {
+  const receta = pedido.receta || {}
+  const paciente = receta.guardia?.paciente || {}
+  const items = receta.recetaItem || []
+  const resueltos = pedido.pedidoItem || []
+  const filas = items.map((it, i) => {
+    const r = resueltos.find(x => x.recetaItemId === it.id)
+    const accion = r ? ({ entregar: 'Entregado', reemplazar: 'Reemplazado', agregar: 'Agregado', cancelar: 'No entregado' }[r.accion] || r.accion) : 'Sin resolver'
+    const detalle = r?.accion === 'reemplazar' ? `${r.medicamentoEntregado}${r.motivoReemplazo ? ` (${r.motivoReemplazo})` : ''}` : (r?.medicamentoEntregado || '—')
+    return [i + 1, it.medicamentoNombre, `${it.dosis || '—'} · ${it.frecuencia || '—'}`, accion, detalle]
+  })
+  imprimirDocumento({
+    titulo: 'Comprobante de entrega de medicamentos',
+    nombreArchivo: `Entrega farmacia ${paciente.apellido || ''} ${paciente.nombre || ''}`.trim(),
+    codigo: codigoCorto(pedido.id),
+    generadoPor,
+    secciones: [
+      { titulo: 'Paciente', html: datosPaciente(paciente) },
+      {
+        titulo: 'Pedido',
+        html: bloques.datos([
+          ['Estado', etiquetaEstado(pedido.estado)],
+          ['Receta emitida', fmtFechaHora(receta.createdAt)],
+          ['Médico', nombreMedico(receta.medico)],
+          ['Atendido por', pedido.farmaciaUsuario ? `${pedido.farmaciaUsuario.nombre} ${pedido.farmaciaUsuario.apellido}` : '—'],
+          ['Resuelto', fmtFechaHora(pedido.resueltaAt)],
+        ]),
+      },
+      { titulo: 'Detalle de la entrega', html: bloques.tabla(['N.º', 'Medicamento recetado', 'Dosis y frecuencia', 'Resultado', 'Detalle'], filas) },
+      ...(pedido.observaciones ? [{ titulo: 'Observaciones', html: bloques.parrafo(pedido.observaciones) }] : []),
+    ],
+    firmas: [
+      { nombre: pedido.farmaciaUsuario ? `${pedido.farmaciaUsuario.nombre} ${pedido.farmaciaUsuario.apellido}` : ' ', detalle: 'Farmacia — firma y sello' },
+      { nombre: nombreCompleto(paciente), detalle: 'Recibí conforme (paciente o responsable)' },
+    ],
+    pie: 'Comprobante de entrega emitido por la farmacia del hospital.',
+  })
+}
+
+// ── Reposición de stock (medicamentos en o bajo el mínimo) ───────
+export function imprimirReposicionStock({ medicamentos, generadoPor }) {
+  const faltantes = medicamentos.filter(m => m.stockActual <= m.stockMinimo)
+  imprimirDocumento({
+    titulo: 'Informe de reposición de stock',
+    nombreArchivo: 'Reposicion de stock',
+    subtitulo: `${faltantes.length} medicamento(s) en o por debajo del stock mínimo`,
+    generadoPor,
+    secciones: [{
+      html: bloques.tabla(
+        ['Medicamento', 'Stock actual', 'Stock mínimo', 'A reponer (sugerido)', 'Situación'],
+        faltantes.map(m => [m.nombre, m.stockActual, m.stockMinimo, Math.max(m.stockMinimo * 2 - m.stockActual, 0), m.stockActual === 0 ? 'Sin stock' : 'Stock bajo']),
+        { alinearDerecha: [1, 2, 3] }),
+    }],
+  })
+}
+
+
+// ── Epicrisis / resumen de internación ───────────────────────────
+export function imprimirEpicrisis({ internacion, paciente, cobertura, comentarios = [], recetas = [], generadoPor }) {
+  const guardia = internacion.guardia || {}
+  const cama = internacion.cama
+  const activa = internacion.estado === 'activa'
+  const dias = internacion.inicio
+    ? Math.max(1, Math.ceil(((internacion.fin ? new Date(internacion.fin) : new Date()) - new Date(internacion.inicio)) / 86400000))
+    : null
+  imprimirDocumento({
+    titulo: activa ? 'Resumen de internación' : 'Epicrisis',
+    nombreArchivo: `${activa ? 'Resumen internacion' : 'Epicrisis'} ${paciente.apellido} ${paciente.nombre}`,
+    subtitulo: nombreCompleto(paciente),
+    codigo: codigoCorto(internacion.id),
+    generadoPor,
+    secciones: [
+      { titulo: 'Paciente', html: datosPaciente(paciente) },
+      {
+        titulo: 'Cobertura',
+        html: bloques.datos([
+          ['Obra social', cobertura?.obraSocial || 'Sin cobertura registrada'],
+          ['N.º de afiliado', cobertura?.numeroAfiliado || '—'],
+        ]),
+      },
+      {
+        titulo: 'Datos de la internación',
+        html: bloques.datos([
+          ['Ingreso a guardia', fmtFechaHora(guardia.ingresoAt)],
+          ['Inicio de internación', fmtFechaHora(internacion.inicio)],
+          [activa ? 'Estado' : 'Egreso', activa ? 'Internación en curso' : fmtFechaHora(internacion.fin)],
+          ['Días de internación', dias != null ? String(dias) : '—'],
+          ['Cama', cama ? `${cama.codigo} · ${cama.sector}` : '—'],
+          ['Médico responsable', nombreMedico(internacion.medico)],
+          ['Nivel de triaje', guardia.nivelTriage ? `Nivel ${guardia.nivelTriage}` : '—'],
+          ['Medio de ingreso', etiquetaEstado(guardia.medioIngreso)],
+        ]),
+      },
+      { titulo: 'Motivo de ingreso', html: bloques.parrafo(guardia.comentarioAnalisis || guardia.justificacionTriage) },
+      {
+        titulo: 'Evolución',
+        html: comentarios.length
+          ? comentarios.map(c => `<div class="item"><div class="cab">${fmtFechaHora(c.createdAt)} — ${c.usuario ? `${c.usuario.nombre} ${c.usuario.apellido}` : 'Personal'}</div>${bloques.parrafo(c.contenido)}</div>`).join('')
+          : '<p class="vacio">Sin registros de evolución.</p>',
+      },
+      {
+        titulo: 'Medicación indicada',
+        html: bloques.tabla(
+          ['Medicamento', 'Dosis', 'Frecuencia', 'Indicaciones'],
+          recetas.flatMap(r => (r.recetaItem || []).map(it => [it.medicamentoNombre, it.dosis || '—', it.frecuencia || '—', it.indicaciones || '—']))),
+      },
+      ...(paciente.alergias ? [{ titulo: 'Alergias', html: bloques.parrafo(paciente.alergias) }] : []),
+      { titulo: 'Indicaciones al egreso', html: '<p class="vacio">A completar por el médico responsable.</p><div style="height:60px"></div>' },
+    ],
+    firmas: [{ nombre: nombreMedico(internacion.medico), detalle: 'Firma y sello del médico responsable' }],
+    pie: activa ? 'Resumen parcial: la internación continúa en curso.' : 'Epicrisis emitida desde el sistema HMSPro.',
+  })
+}
+
+// ── Orden de estudios ────────────────────────────────────────────
+export function imprimirOrdenEstudios({ paciente, cobertura, medico, estudios, diagnostico, prioridad, indicaciones, generadoPor }) {
+  imprimirDocumento({
+    titulo: 'Orden de estudios',
+    nombreArchivo: `Orden de estudios ${paciente.apellido} ${paciente.nombre}`,
+    generadoPor,
+    secciones: [
+      { titulo: 'Paciente', html: datosPaciente(paciente) },
+      { html: bloques.datos([['Obra social', cobertura?.obraSocial || '—'], ['N.º de afiliado', cobertura?.numeroAfiliado || '—'], ['Prioridad', prioridad || 'Normal']]) },
+      { titulo: 'Diagnóstico presuntivo', html: bloques.parrafo(diagnostico) },
+      { titulo: 'Estudios solicitados', html: bloques.lista(estudios) },
+      ...(indicaciones ? [{ titulo: 'Indicaciones', html: bloques.parrafo(indicaciones) }] : []),
+    ],
+    firmas: [{ nombre: nombreMedico(medico), detalle: 'Firma y sello del profesional' }],
+    pie: 'Orden válida con firma y sello del profesional solicitante.',
+  })
+}
+
+// ── Consentimiento informado ─────────────────────────────────────
+export function imprimirConsentimiento({ paciente, medico, procedimiento, riesgos, alternativas, generadoPor }) {
+  imprimirDocumento({
+    titulo: 'Consentimiento informado',
+    nombreArchivo: `Consentimiento ${paciente.apellido} ${paciente.nombre}`,
+    generadoPor,
+    secciones: [
+      { titulo: 'Paciente', html: datosPaciente(paciente) },
+      { titulo: 'Procedimiento propuesto', html: bloques.parrafo(procedimiento) },
+      { titulo: 'Riesgos y beneficios explicados', html: bloques.parrafo(riesgos) },
+      ...(alternativas ? [{ titulo: 'Alternativas', html: bloques.parrafo(alternativas) }] : []),
+      {
+        titulo: 'Declaración',
+        html: bloques.parrafo(`Declaro haber sido informado/a por el profesional de manera clara sobre el procedimiento, sus riesgos, beneficios y alternativas, haber podido hacer preguntas y que éstas fueron respondidas. Comprendo que puedo revocar este consentimiento en cualquier momento antes del procedimiento. En consecuencia, autorizo su realización.`),
+      },
+    ],
+    firmas: [
+      { nombre: nombreCompleto(paciente), detalle: `Paciente o responsable · DNI ${paciente.dni}` },
+      { nombre: nombreMedico(medico), detalle: 'Médico interviniente' },
+    ],
+    pie: 'Documento de consentimiento informado. Conservar firmado en la historia clínica.',
+  })
+}

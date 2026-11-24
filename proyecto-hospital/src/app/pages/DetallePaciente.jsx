@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { BotonDocumento } from '../components/BotonDocumento'
 import { exportarFichaPaciente, exportarHistorialClinico } from '../../services/documentosService'
 import { nombreDe } from '../../lib/documentos'
+import { ModalDocumentoClinico } from '../components/ModalDocumentoClinico'
 import {
   User, Phone, CreditCard, FileText, ArrowLeft,
   Edit2, Save, X, Loader2, CheckCircle2, XCircle,
@@ -42,6 +43,7 @@ export function DetallePaciente() {
   const { perfil } = useAuth()
   const puedeGenerarCodigo = ['administrador', 'recepcionista'].includes(perfil?.rol)
   const puedeEditarDni     = ['administrador', 'recepcionista'].includes(perfil?.rol)
+  const [docClinico, setDocClinico] = useState(null)
   const puedeEditarClinicos = ['administrador', 'medico'].includes(perfil?.rol)
   const [generando, setGenerando] = useState(false)
 
@@ -219,6 +221,12 @@ export function DetallePaciente() {
           <BotonDocumento onGenerar={() => exportarFichaPaciente(paciente.id, nombreDe(perfil))}>Ficha en PDF</BotonDocumento>
           {['administrador', 'medico', 'enfermero', 'recepcionista'].includes(perfil?.rol) && (
             <BotonDocumento onGenerar={() => exportarHistorialClinico(paciente.id, nombreDe(perfil))}>Historial en PDF</BotonDocumento>
+          )}
+          {puedeEditarClinicos && (
+            <>
+              <BotonDocumento onGenerar={() => setDocClinico('orden')}>Orden de estudios</BotonDocumento>
+              <BotonDocumento onGenerar={() => setDocClinico('consentimiento')}>Consentimiento</BotonDocumento>
+            </>
           )}
         </div>
       </div>
@@ -578,6 +586,10 @@ export function DetallePaciente() {
         </div>
 
       </div>
+
+      {docClinico && (
+        <ModalDocumentoClinico tipo={docClinico} paciente={paciente} cobertura={cobertura} perfil={perfil} onClose={() => setDocClinico(null)} />
+      )}
     </div>
   )
 }

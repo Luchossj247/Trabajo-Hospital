@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import { getHistorialCompleto } from './historialClinicoService'
-import { imprimirHistorialClinico, imprimirFichaPaciente } from '../lib/plantillas'
+import { imprimirHistorialClinico, imprimirFichaPaciente, imprimirEpicrisis } from '../lib/plantillas'
 
 async function getPacienteConCobertura(pacienteId) {
   const { data, error } = await supabase
@@ -25,4 +25,36 @@ export async function exportarHistorialClinico(pacienteId, generadoPor) {
 export async function exportarFichaPaciente(pacienteId, generadoPor) {
   const { paciente, cobertura } = await getPacienteConCobertura(pacienteId)
   imprimirFichaPaciente({ paciente, cobertura, generadoPor })
+}
+
+
+// Epicrisis (o resumen, si la internación sigue activa) con evolución y medicación.
+export async function exportarEpicrisis(internacionId, generadoPor) {
+  const { data: internacion, error } = await supabase
+    .from('internacion')
+    .select(`
+      *,
+      cama:camaId ( codigo, sector ),
+      medico:medicoId ( nombre, apellido ),
+      guardia:guardiaId (
+        *,
+        comentarioGuardia ( contenido, createdAt, usuario:usuarioId ( nombre, apellido ) ),
+        receta ( id, recetaItem ( * ) ),
+        paciente:pacienteId ( *, coberturaMedica ( * ) )
+      )
+    `)
+    .eq('id', internacionId)
+    .single()
+  if (error) throw error
+  const { paciente: pac, comentarioGuardia, receta, ...guardia } = internacion.guardia
+  const { coberturaMedica, ...paciente } = pac
+  const comentarios = [...(comentarioGuardia || [])].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+  imprimirEpicrisis({
+    internacion: { ...internacion, guardia },
+    paciente,
+    cobertura: coberturaMedica?.[0] || null,
+    comentarios,
+    recetas: receta || [],
+    generadoPor,
+  })
 }
