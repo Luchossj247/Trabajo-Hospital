@@ -165,9 +165,10 @@ export function imprimirDocumento(doc) {
 
 // ── CSV (se abre bien en Excel en español: separador ";" y BOM UTF-8) ──
 export function descargarCSV(nombreBase, encabezados, filas) {
-  const celda = v => `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`
+  // Los números llevan coma decimal (Excel en español) y no se entrecomillan.
+  const celda = v => typeof v === 'number' ? String(v).replace('.', ',') : `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`
   const csv = [encabezados, ...filas].map(r => r.map(celda).join(';')).join('\r\n')
-  const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
+  const url = URL.createObjectURL(new Blob(['﻿' + 'sep=;\r\n' + csv], { type: 'text/csv;charset=utf-8' }))
   const a = document.createElement('a')
   a.href = url
   a.download = `${nombreBase}_${new Date().toISOString().split('T')[0]}.csv`

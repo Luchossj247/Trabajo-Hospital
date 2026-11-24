@@ -660,7 +660,7 @@ export function Facturacion() {
   // Separador ";" y BOM UTF-8 para que Excel en español lo abra bien (tildes y columnas).
   const handleExportar = () => {
     if (filtered.length === 0) return
-    const celda = v => `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`
+    const celda = v => typeof v === 'number' ? String(v).replace('.', ',') : `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`
     const encabezado = ['Fecha', 'Paciente', 'DNI', 'Estado cobertura', 'Monto total', 'Monto obra social', 'Monto paciente', 'Estado pago', 'Observaciones']
     const filas = filtered.map(f => [
       f.createdAt ? new Date(f.createdAt).toLocaleDateString('es-AR') : '',
@@ -674,7 +674,7 @@ export function Facturacion() {
       f.observaciones ?? '',
     ])
     const csv = [encabezado, ...filas].map(r => r.map(celda).join(';')).join('\r\n')
-    const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
+    const url = URL.createObjectURL(new Blob(['\ufeff' + 'sep=;\r\n' + csv], { type: 'text/csv;charset=utf-8' }))
     const a = document.createElement('a')
     a.href = url
     a.download = `facturas_${new Date().toISOString().split('T')[0]}.csv`
